@@ -1,0 +1,23 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>ai.galois.scopecreep</id>
+    <name>Scopecreep</name>
+    <vendor email="sheoranbhavik@gmail.com" url="https://github.com/BhavikFTW/Scopecreep">Galois Labs</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Scopecreep"
+                    anchor="right"
+                    factoryClass="ai.galois.scopecreep.ScopecreepToolWindowFactory"/>
+
+        <postStartupActivity implementation="ai.galois.scopecreep.sidecar.SidecarActivity"/>
+
+        <applicationService serviceImplementation="ai.galois.scopecreep.settings.ScopecreepSettings"/>
+        <applicationConfigurable
+                parentId="tools"
+                instance="ai.galois.scopecreep.settings.ScopecreepSettingsConfigurable"
+                id="ai.galois.scopecreep.settings.ScopecreepSettingsConfigurable"
+                displayName="Scopecreep"/>
+    </extensions>
+</idea-plugin>

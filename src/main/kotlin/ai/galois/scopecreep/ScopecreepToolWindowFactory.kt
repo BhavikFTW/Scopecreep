@@ -1,0 +1,57 @@
+package ai.galois.scopecreep
+
+import ai.galois.scopecreep.service.RunnerClient
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindow
+import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBPanel
+import com.intellij.ui.content.ContentFactory
+import com.intellij.util.ui.JBUI
+import java.awt.FlowLayout
+import javax.swing.JButton
+import javax.swing.SwingUtilities
+
+class ScopecreepToolWindowFactory : ToolWindowFactory {
+
+    override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        val panel = ScopecreepPanel()
+        val content = ContentFactory.getInstance().createContent(panel.root, null, false)
+        toolWindow.contentManager.addContent(content)
+    }
+
+    override fun shouldBeAvailable(project: Project): Boolean = true
+}
+
+class ScopecreepPanel {
+
+    private val statusLabel = JBLabel("Scopecreep — idle")
+    private val pingButton = JButton("Ping sidecar")
+    private val client = RunnerClient()
+
+    val root: JBPanel<JBPanel<*>> = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT)).apply {
+        border = JBUI.Borders.empty(8)
+        add(statusLabel)
+        add(pingButton)
+    }
+
+    init {
+        pingButton.addActionListener { ping() }
+    }
+
+    private fun ping() {
+        pingButton.isEnabled = false
+        statusLabel.text = "Pinging…"
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val result = client.ping()
+            SwingUtilities.invokeLater {
+                statusLabel.text = when (result) {
+                    is RunnerClient.Result.Ok -> "pong — ${result.body.take(80)}"
+                    is RunnerClient.Result.Err -> "error: ${result.message}"
+                }
+                pingButton.isEnabled = true
+            }
+        }
+    }
+}

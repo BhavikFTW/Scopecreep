@@ -1,0 +1,11 @@
+.DS_Store
+.gradle
+.idea
+.intellijPlatform
+.kotlin
+build
+.claude/
+
+# Python bytecode (in case anyone runs the sidecar in-tree)
+__pycache__/
+*.pyc
