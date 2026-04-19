@@ -1,6 +1,6 @@
-package ai.galois.scopecreep
+package com.scopecreep
 
-import ai.galois.scopecreep.settings.ScopecreepSettings
+import com.scopecreep.settings.ScopecreepSettings
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 class ScopecreepSettingsTest : BasePlatformTestCase() {

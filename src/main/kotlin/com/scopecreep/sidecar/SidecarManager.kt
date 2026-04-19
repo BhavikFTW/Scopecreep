@@ -1,6 +1,6 @@
-package ai.galois.scopecreep.sidecar
+package com.scopecreep.sidecar
 
-import ai.galois.scopecreep.settings.ScopecreepSettings
+import com.scopecreep.settings.ScopecreepSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessAdapter
@@ -113,7 +113,13 @@ class SidecarManager : Disposable {
 
     private fun run(cmd: GeneralCommandLine) {
         val process = cmd.createProcess()
+        // Drain stdout on a daemon thread; without this, pip fills the OS pipe buffer
+        // (~64 KB) and blocks mid-write while waitFor() waits for exit — deadlock.
+        val stdoutDrain = Thread { process.inputStream.copyTo(java.io.OutputStream.nullOutputStream()) }
+        stdoutDrain.isDaemon = true
+        stdoutDrain.start()
         val code = process.waitFor()
+        stdoutDrain.join()
         if (code != 0) {
             val stderr = process.errorStream.bufferedReader().readText()
             throw IOException("Command failed (exit $code): ${cmd.commandLineString}\n$stderr")

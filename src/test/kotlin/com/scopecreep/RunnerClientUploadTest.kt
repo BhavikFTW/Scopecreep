@@ -1,7 +1,7 @@
-package ai.galois.scopecreep
+package com.scopecreep
 
-import ai.galois.scopecreep.service.RunnerClient
-import ai.galois.scopecreep.settings.ScopecreepSettings
+import com.scopecreep.service.RunnerClient
+import com.scopecreep.settings.ScopecreepSettings
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

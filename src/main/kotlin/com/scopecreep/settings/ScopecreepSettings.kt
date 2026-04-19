@@ -1,4 +1,4 @@
-package ai.galois.scopecreep.settings
+package com.scopecreep.settings
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent
@@ -9,7 +9,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 
 @Service(Service.Level.APP)
 @State(
-    name = "ai.galois.scopecreep.settings.ScopecreepSettings",
+    name = "com.scopecreep.settings.ScopecreepSettings",
     storages = [Storage("scopecreep.xml")],
 )
 class ScopecreepSettings : PersistentStateComponent<ScopecreepSettings.State> {

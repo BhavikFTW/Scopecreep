@@ -64,7 +64,7 @@ Changes apply on the next sidecar restart.
 
 ```
 src/
-├── main/kotlin/ai/galois/scopecreep/
+├── main/kotlin/com/scopecreep/
 │   ├── ScopecreepToolWindowFactory.kt    # tool window + panel
 │   ├── service/RunnerClient.kt           # OkHttp → sidecar
 │   ├── sidecar/
@@ -78,7 +78,7 @@ src/
 │   └── sidecar/                          # bundled into the plugin JAR
 │       ├── worker.py
 │       └── requirements.txt
-└── test/kotlin/ai/galois/scopecreep/
+└── test/kotlin/com/scopecreep/
     └── ScopecreepSettingsTest.kt
 ```
 
