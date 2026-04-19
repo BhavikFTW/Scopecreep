@@ -159,11 +159,13 @@ class ChatOrchestrator:
                 role = "user"
             chat_messages.append({"role": role, "content": content})
 
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            messages=chat_messages,
-            temperature=0.2,
-        )
+        # Some newer models (gpt-5*, o1/o3, etc.) only accept the default
+        # temperature, so we omit the param unless the model is known to
+        # support it. Safer than feature-detecting per error.
+        kwargs: dict = {"model": self.model, "messages": chat_messages}
+        if self.model.startswith(("gpt-4", "gpt-3")):
+            kwargs["temperature"] = 0.2
+        resp = self.client.chat.completions.create(**kwargs)
         text = resp.choices[0].message.content or ""
         blocks: list[CodeBlock] = []
         for m in _CODE_BLOCK_RE.finditer(text):
