@@ -38,7 +38,7 @@ intellijPlatform {
 // gradle property `benchy.backend.path`.
 // -------------------------------------------------------------------------
 val benchyBackendSrc: String =
-    (project.findProperty("benchy.backend.path") as String?) ?: "../python"
+    (project.findProperty("benchy.backend.path") as String?) ?: "backend/python"
 
 val bundleBenchyBackend = tasks.register("bundleBenchyBackend") {
     group = "build"
