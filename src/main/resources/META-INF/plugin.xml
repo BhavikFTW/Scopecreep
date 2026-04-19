@@ -2,7 +2,7 @@
 <idea-plugin>
     <id>com.scopecreep</id>
     <name>Scopecreep</name>
-    <vendor email="sheoranbhavik@gmail.com" url="https://github.com/BhavikFTW/Scopecreep">Galois Labs</vendor>
+    <vendor email="sheoranbhavik@gmail.com" url="https://github.com/BhavikFTW/Scopecreep">Scopecreep</vendor>
 
     <depends>com.intellij.modules.platform</depends>
 

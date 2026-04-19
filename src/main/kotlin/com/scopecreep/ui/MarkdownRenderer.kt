@@ -7,22 +7,20 @@ object MarkdownRenderer {
     private val parser: Parser = Parser.builder().build()
     private val renderer: HtmlRenderer = HtmlRenderer.builder().build()
 
+    // NOTE: Swing's HTMLEditorKit has an ancient CSS parser (effectively CSS 1 subset)
+    // that NullPointerExceptions on modern properties like `-apple-system`,
+    // `overflow-x`, unquoted multi-font stacks, etc. Keep this CSS boring.
     private val cssPrelude = """
         <style>
-        body { font-family: -apple-system, Segoe UI, sans-serif;
-               font-size: 13px; line-height: 1.5; color: #ddd;
-               background: #2b2b2b; padding: 12px; }
-        h1, h2, h3 { color: #fff; border-bottom: 1px solid #444;
-                     padding-bottom: 4px; }
-        code { background: #1e1e1e; padding: 2px 4px;
-               border-radius: 3px; font-family: Menlo, monospace;
-               font-size: 12px; }
-        pre { background: #1e1e1e; padding: 10px; border-radius: 4px;
-              overflow-x: auto; }
-        pre code { background: none; padding: 0; }
-        table { border-collapse: collapse; margin: 8px 0; }
-        th, td { border: 1px solid #555; padding: 4px 8px; text-align: left; }
-        th { background: #333; }
+        body { font-family: SansSerif; font-size: 12pt; color: #dddddd; background-color: #2b2b2b; }
+        h1 { font-size: 18pt; color: #ffffff; }
+        h2 { font-size: 15pt; color: #ffffff; }
+        h3 { font-size: 13pt; color: #ffffff; }
+        code { font-family: Monospaced; font-size: 11pt; color: #d0d0d0; background-color: #1e1e1e; }
+        pre { font-family: Monospaced; font-size: 11pt; color: #d0d0d0; background-color: #1e1e1e; }
+        table { border-color: #555555; }
+        th { background-color: #333333; color: #ffffff; }
+        td { color: #dddddd; }
         a { color: #58a6ff; }
         </style>
     """.trimIndent()
