@@ -1,0 +1,72 @@
+# Cut a GitHub Release with the plugin zip attached.
+#
+# Triggers:
+#   push of a tag matching v*   → real release, zip uploaded via softprops/action-gh-release
+#   workflow_dispatch           → manual re-run (uploads artifact only, no release created)
+
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish zip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Maximize Build Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          large-packages: false
+
+      - name: Fetch Sources
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build plugin
+        run: ./gradlew --no-daemon buildPlugin
+
+      - name: Locate zip
+        id: zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_PATH=$(ls build/distributions/Scopecreep-*.zip | head -n 1)
+          echo "path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$ZIP_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact (always)
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.zip.outputs.name }}
+          path: ${{ steps.zip.outputs.path }}
+          retention-days: 30
+
+      - name: Attach to GitHub Release (tag only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.zip.outputs.path }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
