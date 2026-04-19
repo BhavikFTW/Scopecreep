@@ -19,7 +19,9 @@ from typing import Any
 from memory import ProfileStore
 
 
-_CODE_BLOCK_RE = re.compile(r"```(?:python|py)\s*\n(.*?)```", re.DOTALL)
+_CODE_BLOCK_RE = re.compile(
+    r"```(?:python|py)(?:[ \t]+path=([^\s`]+))?\s*\n(.*?)```", re.DOTALL
+)
 
 
 SYSTEM_BASE = """\
@@ -29,13 +31,37 @@ Rev C (scope + AWG + PSU + DIO) and optionally a DPS-150 bench supply. Your
 job is to help them measure and test circuits by generating Python code that
 drives instruments through the local hardware backend.
 
-## How code is executed
+## How code is executed and saved
 
-The user will copy or click "Run" on each ```python fenced block you emit.
-The code runs in a Python sidecar process that has `requests` and `numpy`
-available. The hardware backend listens on http://127.0.0.1:8000 and the
-generated code MUST talk to it via `requests.post(...)` / `requests.get(...)`.
-DO NOT attempt to import hardware drivers directly.
+You operate DIRECTLY inside the user's open JetBrains project. Every
+```python fenced block you emit becomes a card in the chat UI with three
+buttons: Run (executes in the sidecar venv), Save (writes to the project),
+Copy.
+
+To persist a file in the user's project, annotate the fence with a project-
+relative path:
+
+    ```python path=instruments/scope_test.py
+    # ... contents ...
+    ```
+
+When you want to build out real project structure — instrument controllers,
+experiment scripts, result renderers, plot helpers — emit one `path=`-
+annotated block per file. Prefer small, focused modules over one mega-file.
+Suggested layout (adapt to what the user asks for):
+
+    instruments/       # driver wrappers around the HTTP backend
+    experiments/       # runnable test scripts
+    results/           # generated data + plots land here at runtime
+    display/           # plotting / dashboard helpers
+
+If a block has no path= annotation, it's a throwaway scratch run — the user
+will click Run and inspect output inline. No filesystem side effects.
+
+The runtime env has `requests` and `numpy` available. The hardware backend
+listens on http://127.0.0.1:8000 and the generated code MUST talk to it via
+`requests.post(...)` / `requests.get(...)`. DO NOT import hardware drivers
+directly.
 
 ## Hardware REST surface (on http://127.0.0.1:8000)
 
@@ -86,9 +112,15 @@ r.raise_for_status()
 
 
 @dataclass
+class CodeBlock:
+    path: str | None
+    code: str
+
+
+@dataclass
 class TurnResult:
     assistant_message: dict
-    code_blocks: list[str]
+    code_blocks: list[CodeBlock]
 
 
 class ChatOrchestrator:
@@ -133,7 +165,10 @@ class ChatOrchestrator:
             temperature=0.2,
         )
         text = resp.choices[0].message.content or ""
-        blocks = [m.group(1).strip() for m in _CODE_BLOCK_RE.finditer(text)]
+        blocks: list[CodeBlock] = []
+        for m in _CODE_BLOCK_RE.finditer(text):
+            path = m.group(1)
+            blocks.append(CodeBlock(path=path or None, code=m.group(2).strip()))
         return TurnResult(
             assistant_message={"role": "assistant", "content": text},
             code_blocks=blocks,

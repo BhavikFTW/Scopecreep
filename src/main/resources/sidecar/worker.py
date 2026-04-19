@@ -161,10 +161,19 @@ class ExecReq(BaseModel):
 
 @app.post("/chat/turn")
 def chat_turn(req: ChatTurnReq) -> dict:
-    result = _get_chat().run_turn(req.messages)
+    try:
+        result = _get_chat().run_turn(req.messages)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        import traceback as _tb
+        detail = f"{type(exc).__name__}: {exc}\n{_tb.format_exc()[-800:]}"
+        raise HTTPException(status_code=500, detail=detail) from exc
     return {
         "message": result.assistant_message,
-        "code_blocks": result.code_blocks,
+        "code_blocks": [
+            {"path": b.path, "code": b.code} for b in result.code_blocks
+        ],
     }
 
 

@@ -70,8 +70,9 @@ class RunnerClient(
     private fun executeAndReturn(request: Request): Result =
         try {
             client.newCall(request).execute().use { response ->
-                if (response.isSuccessful) Result.Ok(response.body?.string().orEmpty())
-                else Result.Err("HTTP ${response.code}")
+                val body = response.body?.string().orEmpty()
+                if (response.isSuccessful) Result.Ok(body)
+                else Result.Err("HTTP ${response.code}: ${body.take(600)}")
             }
         } catch (t: Throwable) {
             Result.Err(t.message ?: t.javaClass.simpleName)

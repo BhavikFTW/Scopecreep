@@ -19,9 +19,8 @@ import javax.swing.SwingUtilities
 /**
  * Pillar 1 — Schematic Testbench.
  *
- * Composes the schematic upload, agent session, and result panels into a
- * single tool-window tab. Wires the existing callbacks (onUseInAgent,
- * onReport) inline so the factory stays thin.
+ * Two stacked sections: agent session on top (owns the .SchDoc picker,
+ * start/cancel/resume, session state), waveform + test-flow tabs below.
  */
 class SchematicTestbenchPanel(
     project: Project,
@@ -39,22 +38,14 @@ class SchematicTestbenchPanel(
             project = project,
             onReport = { json -> waveform.loadReport(json) },
         )
-        val schematic = SchematicSummaryPanel(
-            project = project,
-            onSchdocReady = { file -> agent.loadSchdocJson(file) },
-        )
 
         val results = JBTabbedPane().apply {
             addTab("Waveform", waveform)
             addTab("Test flow", testFlow)
         }
 
-        val upperSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, schematic, agent).apply {
-            resizeWeight = 0.35
-            isContinuousLayout = true
-        }
-        val mainSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, upperSplit, results).apply {
-            resizeWeight = 0.65
+        val mainSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, agent, results).apply {
+            resizeWeight = 0.6
             isContinuousLayout = true
         }
 

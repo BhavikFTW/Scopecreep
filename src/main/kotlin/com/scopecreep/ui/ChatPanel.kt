@@ -1,6 +1,11 @@
 package com.scopecreep.ui
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
 import com.scopecreep.service.RunnerClient
 import java.awt.BorderLayout
 import java.awt.Color
@@ -8,6 +13,7 @@ import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
+import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.Box
 import javax.swing.BoxLayout
@@ -16,6 +22,7 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
+import javax.swing.JTextField
 import javax.swing.KeyStroke
 import javax.swing.ScrollPaneConstants
 import javax.swing.SwingUtilities
@@ -29,7 +36,7 @@ import javax.swing.SwingUtilities
  * Messages = JSON array maintained client-side. Sidecar is stateless per
  * turn; the full history is sent every time.
  */
-class ChatPanel : JPanel(BorderLayout()) {
+class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
 
     private val messages = mutableListOf<Pair<String, String>>() // role, content
     private val client = RunnerClient()
@@ -133,14 +140,18 @@ class ChatPanel : JPanel(BorderLayout()) {
             add(Box.createVerticalStrut(4))
         }
 
-        // Split content around ```python ... ``` blocks.
-        val regex = Regex("```(?:python|py)\\s*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
+        // Split content around ```python [path=foo/bar.py] ... ``` blocks.
+        val regex = Regex(
+            "```(?:python|py)(?:[ \\t]+path=([^\\s`]+))?\\s*\\n(.*?)```",
+            RegexOption.DOT_MATCHES_ALL,
+        )
         var last = 0
         for (m in regex.findAll(content)) {
             val before = content.substring(last, m.range.first)
             if (before.isNotBlank()) card.add(proseArea(before.trim()))
             card.add(Box.createVerticalStrut(6))
-            card.add(codeBlockCard(m.groupValues[1].trim()))
+            val path = m.groupValues[1].ifBlank { null }
+            card.add(codeBlockCard(m.groupValues[2].trim(), path))
             card.add(Box.createVerticalStrut(6))
             last = m.range.last + 1
         }
@@ -154,7 +165,7 @@ class ChatPanel : JPanel(BorderLayout()) {
         scrollToBottom()
     }
 
-    private fun codeBlockCard(code: String): JPanel {
+    private fun codeBlockCard(code: String, suggestedPath: String?): JPanel {
         val codeArea = JTextArea(code).apply {
             font = Font(Font.MONOSPACED, Font.PLAIN, 12)
             background = Color(25, 25, 25)
@@ -174,9 +185,24 @@ class ChatPanel : JPanel(BorderLayout()) {
         }
         val runButton = JButton("Run")
         val copyButton = JButton("Copy")
+        val pathField = JTextField(suggestedPath ?: "", 28).apply {
+            toolTipText = "Project-relative path. Save writes here."
+        }
+        val saveButton = JButton(if (suggestedPath != null) "Save" else "Save as…")
         copyButton.addActionListener {
             val sel = java.awt.datatransfer.StringSelection(codeArea.text)
             java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, null)
+        }
+        saveButton.addActionListener {
+            val p = pathField.text.trim()
+            if (p.isEmpty()) {
+                output.isVisible = true
+                output.text = "[save] enter a project-relative path first"
+                return@addActionListener
+            }
+            val result = writeToProject(p, codeArea.text)
+            output.isVisible = true
+            output.text = result
         }
         runButton.addActionListener {
             runButton.isEnabled = false
@@ -211,7 +237,7 @@ class ChatPanel : JPanel(BorderLayout()) {
             add(codeArea, BorderLayout.CENTER)
             val toolbar = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
                 background = Color(35, 35, 35)
-                add(runButton); add(copyButton)
+                add(runButton); add(saveButton); add(pathField); add(copyButton)
             }
             add(toolbar, BorderLayout.NORTH)
             add(output, BorderLayout.SOUTH)
@@ -260,6 +286,34 @@ class ChatPanel : JPanel(BorderLayout()) {
         foreground = color
         font = font.deriveFont(Font.BOLD)
         alignmentX = Component.LEFT_ALIGNMENT
+    }
+
+    private fun writeToProject(relPath: String, content: String): String {
+        val proj = project ?: return "[save] no project context — open this tab inside a project"
+        val base = proj.basePath ?: return "[save] project has no base path"
+        // Reject absolute paths + parent escapes — keep writes scoped to the project.
+        if (relPath.startsWith("/") || relPath.startsWith("\\") || relPath.contains("..")) {
+            return "[save] refusing unsafe path: $relPath"
+        }
+        val target = File(base, relPath)
+        return try {
+            val result = StringBuilder()
+            WriteAction.runAndWait<Throwable> {
+                target.parentFile?.mkdirs()
+                val baseVf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(File(base))
+                    ?: throw IllegalStateException("cannot resolve project root in VFS")
+                val parent = VfsUtil.createDirectoryIfMissing(baseVf, relPath.substringBeforeLast('/', ""))
+                    ?: baseVf
+                val existing = parent.findChild(target.name)
+                val vf = existing ?: parent.createChildData(this, target.name)
+                vf.setBinaryContent(content.toByteArray(Charsets.UTF_8))
+                result.append("[saved] ").append(relPath)
+                FileEditorManager.getInstance(proj).openFile(vf, true)
+            }
+            result.toString()
+        } catch (t: Throwable) {
+            "[save failed] ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 
     private fun scrollToBottom() {

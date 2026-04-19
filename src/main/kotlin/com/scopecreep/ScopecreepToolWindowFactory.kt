@@ -34,7 +34,7 @@ class ScopecreepToolWindowFactory : ToolWindowFactory, DumbAware {
             ),
         )
         toolWindow.contentManager.addContent(
-            factory.createContent(com.scopecreep.ui.ChatPanel(), "Chat", false),
+            factory.createContent(com.scopecreep.ui.ChatPanel(project), "Chat", false),
         )
     }
 
