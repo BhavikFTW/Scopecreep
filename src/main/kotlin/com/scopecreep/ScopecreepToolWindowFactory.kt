@@ -16,9 +16,15 @@ import javax.swing.SwingUtilities
 class ScopecreepToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val panel = ScopecreepPanel()
-        val content = ContentFactory.getInstance().createContent(panel.root, null, false)
-        toolWindow.contentManager.addContent(content)
+        val factory = ContentFactory.getInstance()
+
+        val pingTab = factory.createContent(ScopecreepPanel().root, "Ping", false)
+        toolWindow.contentManager.addContent(pingTab)
+
+        val profilesTab = factory.createContent(
+            com.scopecreep.ui.ProfilesPanel().root, "Profiles", false
+        )
+        toolWindow.contentManager.addContent(profilesTab)
     }
 
     override fun shouldBeAvailable(project: Project): Boolean = true
