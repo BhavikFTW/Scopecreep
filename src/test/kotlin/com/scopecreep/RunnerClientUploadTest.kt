@@ -24,7 +24,7 @@ class RunnerClientUploadTest : BasePlatformTestCase() {
     }
 
     override fun tearDown() {
-        server.shutdown()
+        try { server.shutdown() } catch (_: Exception) { }
         super.tearDown()
     }
 
@@ -34,16 +34,28 @@ class RunnerClientUploadTest : BasePlatformTestCase() {
                 .setResponseCode(200)
                 .setBody("""{"status":"ok","schematic":"/tmp/s.png","pcb":"/tmp/p.png"}""")
         )
-        val schematic = File.createTempFile("schematic", ".png").also { it.writeText("fake") }
-        val pcb = File.createTempFile("pcb", ".png").also { it.writeText("fake") }
+        val schematic = File.createTempFile("schematic", ".png").also {
+            it.writeText("fake")
+            it.deleteOnExit()
+        }
+        val pcb = File.createTempFile("pcb", ".png").also {
+            it.writeText("fake")
+            it.deleteOnExit()
+        }
         val result = RunnerClient().uploadFiles(schematic, pcb)
         assertTrue(result is RunnerClient.Result.Ok)
     }
 
     fun testUploadFiles_returnsErrOnHttpError() {
         server.enqueue(MockResponse().setResponseCode(500))
-        val schematic = File.createTempFile("schematic", ".png").also { it.writeText("fake") }
-        val pcb = File.createTempFile("pcb", ".png").also { it.writeText("fake") }
+        val schematic = File.createTempFile("schematic", ".png").also {
+            it.writeText("fake")
+            it.deleteOnExit()
+        }
+        val pcb = File.createTempFile("pcb", ".png").also {
+            it.writeText("fake")
+            it.deleteOnExit()
+        }
         val result = RunnerClient().uploadFiles(schematic, pcb)
         assertTrue(result is RunnerClient.Result.Err)
         assertEquals("HTTP 500", (result as RunnerClient.Result.Err).message)
@@ -51,8 +63,14 @@ class RunnerClientUploadTest : BasePlatformTestCase() {
 
     fun testUploadFiles_returnsErrOnConnectionRefused() {
         server.shutdown()
-        val schematic = File.createTempFile("schematic", ".png").also { it.writeText("fake") }
-        val pcb = File.createTempFile("pcb", ".png").also { it.writeText("fake") }
+        val schematic = File.createTempFile("schematic", ".png").also {
+            it.writeText("fake")
+            it.deleteOnExit()
+        }
+        val pcb = File.createTempFile("pcb", ".png").also {
+            it.writeText("fake")
+            it.deleteOnExit()
+        }
         val result = RunnerClient().uploadFiles(schematic, pcb)
         assertTrue(result is RunnerClient.Result.Err)
     }
