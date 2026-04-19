@@ -38,8 +38,8 @@ async def upload(
     pcb: UploadFile = File(...),
 ) -> dict:
     tmp_dir = tempfile.mkdtemp(prefix="scopecreep_")
-    schematic_path = os.path.join(tmp_dir, os.path.basename(schematic.filename or "schematic"))
-    pcb_path = os.path.join(tmp_dir, os.path.basename(pcb.filename or "pcb"))
+    schematic_path = os.path.join(tmp_dir, os.path.basename(schematic.filename) or "schematic")
+    pcb_path = os.path.join(tmp_dir, os.path.basename(pcb.filename) or "pcb")
     with open(schematic_path, "wb") as f:
         shutil.copyfileobj(schematic.file, f)
     with open(pcb_path, "wb") as f:
