@@ -19,41 +19,21 @@ class ScopecreepToolWindowFactory : ToolWindowFactory {
         val factory = ContentFactory.getInstance()
 
         toolWindow.contentManager.addContent(
-            factory.createContent(ScopecreepPanel().root, "Ping", false),
+            factory.createContent(
+                com.scopecreep.ui.SchematicTestbenchPanel(project),
+                "Schematic Testbench",
+                false,
+            ),
         )
         toolWindow.contentManager.addContent(
-            factory.createContent(com.scopecreep.ui.ProfilesPanel().root, "Profiles", false),
-        )
-
-        // Agent integration tabs. The schematic tab feeds "Use in Agent" into
-        // the agent session panel; the waveform panel receives the final
-        // report JSON from the session panel.
-        val waveform = com.scopecreep.ui.WaveformPanel()
-        val agent = com.scopecreep.ui.AgentSessionPanel(
-            project = project,
-            onReport = { json -> waveform.loadReport(json) },
-        )
-        val schematic = com.scopecreep.ui.SchematicSummaryPanel(
-            project = project,
-            onUseInAgent = { markdown -> agent.useMarkdownAsHint(markdown) },
-        )
-        toolWindow.contentManager.addContent(
-            factory.createContent(schematic, "Schematic", false),
-        )
-        toolWindow.contentManager.addContent(
-            factory.createContent(agent, "Agent (REST)", false),
-        )
-        toolWindow.contentManager.addContent(
-            factory.createContent(com.scopecreep.ui.TestFlowPanel(project), "Test flow", false),
-        )
-        toolWindow.contentManager.addContent(
-            factory.createContent(waveform, "Waveform", false),
+            factory.createContent(
+                com.scopecreep.ui.HardwareTestbenchPanel(),
+                "Hardware Testbench",
+                false,
+            ),
         )
         toolWindow.contentManager.addContent(
             factory.createContent(com.scopecreep.ui.ChatPanel(), "Chat", false),
-        )
-        toolWindow.contentManager.addContent(
-            factory.createContent(com.scopecreep.ui.FirmwarePanel(), "Firmware", false),
         )
     }
 

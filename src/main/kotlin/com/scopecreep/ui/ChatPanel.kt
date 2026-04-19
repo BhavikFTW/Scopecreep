@@ -18,6 +18,9 @@ import javax.swing.JScrollPane
 import javax.swing.JTextArea
 import javax.swing.SwingUtilities
 
+// TODO(block-j): replace codex-exec body with /chat/turn orchestrator
+//   (tool-call loop + Run-on-code-block) per
+//   docs/superpowers/specs/2026-04-18-chatbot-hardware-loop-design.md
 /**
  * Free-form chat backed by the `codex exec` CLI. The plugin doesn't embed an
  * LLM client — it shells out so the codex config (OpenAI or Nebius via
