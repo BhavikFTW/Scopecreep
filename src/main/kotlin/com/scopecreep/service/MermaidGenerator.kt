@@ -17,13 +17,30 @@ class MermaidGenerator(
             ?: return Result.Err("OpenAI API key not set — Settings → Tools → Scopecreep")
 
         val system = """
-            You are a hardware-schematic assistant. Given a detailed circuit analysis,
-            produce a concise overview and a Mermaid diagram of the circuit's high-level
-            architecture. Respond with ONLY a single JSON object, no prose, no code
-            fences, with exactly two string fields:
+            You are a hardware-schematic assistant. Given a PCB analysis (components,
+            pins, nets, connectors, test points), produce a short overview plus a
+            Mermaid flowchart that captures the full net-level connectivity:
+
+            DIAGRAM RULES — follow all of them:
+              1. Start with "flowchart LR".
+              2. Each NET is a node shaped as a rounded rectangle, id = sanitized net
+                 name (letters, digits, underscores only), label = exact net name.
+                 Example: `GND([GND])`, `NET_452([NET_452])`.
+              3. Each COMPONENT is a node shaped as a box, id = refdes (e.g. U1, R3),
+                 label = "refdes\\nvalue-or-part". Example: `U1[U1\\nTPS62932DRLR]`.
+              4. For every component pin that connects to a net, draw an edge from the
+                 component to the net labeled with the pin number: `U1 -- "3" --> 3V3`.
+                 Include EVERY pin listed in the analysis — do not summarise.
+              5. Physical test points (J*.1 etc.) should appear as diamond nodes:
+                 `J5{"J5.1 CANPT_H"}` with an edge to their net.
+              6. Power nets (3V3, 12V, GND) should be styled with `classDef power`
+                 and assigned via `class 3V3,12V,GND power;`.
+              7. Do NOT invent pins, parts, or nets that are not in the input.
+
+            Respond with ONLY a single JSON object, no prose, no code fences, with
+            exactly two string fields:
               "summary"  — 2-4 sentences a non-expert can read.
-              "mermaid"  — valid Mermaid flowchart code (start with "flowchart LR" or
-                           "flowchart TD"). Use node labels that match real parts.
+              "mermaid"  — the full flowchart obeying the rules above.
             Do not wrap the JSON in markdown.
         """.trimIndent()
 
