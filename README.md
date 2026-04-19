@@ -30,17 +30,32 @@ integrations ride on top of this plumbing in later milestones.
 For a full step-by-step install, first-boot walk-through, and validation
 matrix, see **[docs/INSTALL_AND_VALIDATE.md](docs/INSTALL_AND_VALIDATE.md)**.
 
+## Install
+
+The plugin is distributed as a single zip on the **[Releases page](https://github.com/BhavikFTW/Scopecreep/releases)** — you do **not** need to clone this repo or run Gradle to use it.
+
+1. Download the latest `Scopecreep-x.y.z.zip`.
+2. In your JetBrains IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…**, pick the zip, restart the IDE.
+3. On first project open, the plugin bootstraps a local Python venv at `~/.scopecreep/venv/` and launches two uvicorn workers (`:8420` for profiles, `:8000` for the agent backend). First run takes 30–90 s; progress and errors surface in the **Schematic Testbench** tab.
+
+Requires `python3.11+` on `PATH` and a JetBrains IDE 2025.2 or newer.
+
 ## Requirements
 
 - **JDK 21** (required by IntelliJ Platform 2025.2; Gradle toolchain auto-fetches it via foojay)
 - **Python 3.11+** on `PATH` (the plugin builds its own venv from bundled `requirements.txt`)
 - **IntelliJ IDEA 2025.2+** for the installed plugin
 
-## Run from source
+## Build from source (contributors)
 
 ```bash
-./gradlew runIde
+git clone --recurse-submodules https://github.com/BhavikFTW/Scopecreep
+cd Scopecreep
+./gradlew runIde         # sandbox IDE for iteration
+./gradlew buildPlugin    # produce build/distributions/Scopecreep-*.zip
 ```
+
+The Python backend is a git submodule at `backend/`. Always clone with `--recurse-submodules`, or run `git submodule update --init --recursive` after cloning. To build against a local checkout of `Scopecreep-hardware` outside the submodule, pass `-Pbenchy.backend.path=/absolute/path/to/python` to any Gradle invocation.
 
 This launches a sandbox IDE with the plugin pre-loaded. On first project open:
 
