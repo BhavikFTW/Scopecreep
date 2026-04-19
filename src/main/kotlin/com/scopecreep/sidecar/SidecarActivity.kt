@@ -1,4 +1,4 @@
-package ai.galois.scopecreep.sidecar
+package com.scopecreep.sidecar
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity

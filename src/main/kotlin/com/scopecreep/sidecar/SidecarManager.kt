@@ -1,6 +1,6 @@
-package ai.galois.scopecreep.sidecar
+package com.scopecreep.sidecar
 
-import ai.galois.scopecreep.settings.ScopecreepSettings
+import com.scopecreep.settings.ScopecreepSettings
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessAdapter

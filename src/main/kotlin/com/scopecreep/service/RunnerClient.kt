@@ -1,6 +1,6 @@
-package ai.galois.scopecreep.service
+package com.scopecreep.service
 
-import ai.galois.scopecreep.settings.ScopecreepSettings
+import com.scopecreep.settings.ScopecreepSettings
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit

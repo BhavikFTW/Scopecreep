@@ -1,4 +1,4 @@
-package ai.galois.scopecreep.settings
+package com.scopecreep.settings
 
 import com.intellij.openapi.options.Configurable
 import com.intellij.ui.dsl.builder.bindIntText

@@ -1,6 +1,6 @@
-package ai.galois.scopecreep
+package com.scopecreep
 
-import ai.galois.scopecreep.service.RunnerClient
+import com.scopecreep.service.RunnerClient
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
