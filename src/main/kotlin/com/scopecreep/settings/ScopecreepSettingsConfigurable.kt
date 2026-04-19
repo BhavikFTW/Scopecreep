@@ -24,12 +24,7 @@ class ScopecreepSettingsConfigurable : Configurable {
             }
             group("OpenAI") {
                 row("API key:") {
-                    passwordField()
-                        .bindText(
-                            { state.openAiApiKey.orEmpty() },
-                            { state.openAiApiKey = it },
-                        )
-                        .columns(40)
+                    passwordField().bindText(state::openAiApiKey).columns(40)
                 }
                 row("Model:") {
                     textField().bindText(state::openAiModel).columns(20)

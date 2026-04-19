@@ -93,7 +93,7 @@ class MermaidGenerator(
     companion object {
         private fun defaultClient(): OpenAiClient? {
             val s = ScopecreepSettings.getInstance().state
-            val key = s.openAiApiKey?.takeIf { it.isNotBlank() } ?: return null
+            val key = s.openAiApiKey.takeIf { it.isNotBlank() } ?: return null
             return OpenAiClient(apiKey = key, model = s.openAiModel)
         }
     }

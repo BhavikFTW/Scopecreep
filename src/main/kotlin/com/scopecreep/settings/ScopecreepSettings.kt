@@ -17,7 +17,7 @@ class ScopecreepSettings : PersistentStateComponent<ScopecreepSettings.State> {
     data class State(
         var runnerHost: String = "127.0.0.1",
         var runnerPort: Int = 8420,
-        var openAiApiKey: String? = null,
+        var openAiApiKey: String = "",
         var openAiModel: String = "gpt-4o-mini",
     )
 
