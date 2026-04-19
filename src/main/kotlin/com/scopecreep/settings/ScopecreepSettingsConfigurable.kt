@@ -14,11 +14,26 @@ class ScopecreepSettingsConfigurable : Configurable {
 
     private val ui by lazy {
         panel {
-            row("Runner host:") {
-                textField().bindText(state::runnerHost).columns(20)
+            group("Sidecar") {
+                row("Runner host:") {
+                    textField().bindText(state::runnerHost).columns(20)
+                }
+                row("Runner port:") {
+                    intTextField(1..65535).bindIntText(state::runnerPort).columns(6)
+                }
             }
-            row("Runner port:") {
-                intTextField(1..65535).bindIntText(state::runnerPort).columns(6)
+            group("OpenAI") {
+                row("API key:") {
+                    passwordField()
+                        .bindText(
+                            { state.openAiApiKey.orEmpty() },
+                            { state.openAiApiKey = it },
+                        )
+                        .columns(40)
+                }
+                row("Model:") {
+                    textField().bindText(state::openAiModel).columns(20)
+                }
             }
             row {
                 comment(
@@ -42,5 +57,7 @@ class ScopecreepSettingsConfigurable : Configurable {
     override fun reset() {
         state.runnerHost = settings.state.runnerHost
         state.runnerPort = settings.state.runnerPort
+        state.openAiApiKey = settings.state.openAiApiKey
+        state.openAiModel = settings.state.openAiModel
     }
 }
