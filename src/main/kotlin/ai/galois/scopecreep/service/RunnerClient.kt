@@ -1,8 +1,12 @@
 package ai.galois.scopecreep.service
 
 import ai.galois.scopecreep.settings.ScopecreepSettings
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 class RunnerClient(
@@ -26,6 +30,27 @@ class RunnerClient(
         }
     }
 
+    fun uploadFiles(schematic: File, pcb: File): Result {
+        val url = settings.runnerUrl.trimEnd('/') + "/upload"
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("schematic", schematic.name, schematic.asRequestBody("application/octet-stream".toMediaType()))
+            .addFormDataPart("pcb", pcb.name, pcb.asRequestBody("application/octet-stream".toMediaType()))
+            .build()
+        val request = Request.Builder().url(url).post(body).build()
+        return try {
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    Result.Ok(response.body?.string().orEmpty())
+                } else {
+                    Result.Err("HTTP ${response.code}")
+                }
+            }
+        } catch (t: Throwable) {
+            Result.Err(t.message ?: t.javaClass.simpleName)
+        }
+    }
+
     sealed class Result {
         data class Ok(val body: String) : Result()
         data class Err(val message: String) : Result()
@@ -34,7 +59,7 @@ class RunnerClient(
     companion object {
         private val defaultClient: OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(2, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 }
