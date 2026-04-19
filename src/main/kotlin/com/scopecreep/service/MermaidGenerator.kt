@@ -21,21 +21,31 @@ class MermaidGenerator(
             pins, nets, connectors, test points), produce a short overview plus a
             Mermaid flowchart that captures the full net-level connectivity:
 
-            DIAGRAM RULES — follow all of them:
+            DIAGRAM RULES — follow all of them strictly. Output MUST be valid
+            Mermaid; syntax errors are unacceptable.
+
               1. Start with "flowchart LR".
-              2. Each NET is a node shaped as a rounded rectangle, id = sanitized net
-                 name (letters, digits, underscores only), label = exact net name.
-                 Example: `GND([GND])`, `NET_452([NET_452])`.
-              3. Each COMPONENT is a node shaped as a box, id = refdes (e.g. U1, R3),
-                 label = "refdes\\nvalue-or-part". Example: `U1[U1\\nTPS62932DRLR]`.
-              4. For every component pin that connects to a net, draw an edge from the
-                 component to the net labeled with the pin number: `U1 -- "3" --> 3V3`.
-                 Include EVERY pin listed in the analysis — do not summarise.
-              5. Physical test points (J*.1 etc.) should appear as diamond nodes:
-                 `J5{"J5.1 CANPT_H"}` with an edge to their net.
-              6. Power nets (3V3, 12V, GND) should be styled with `classDef power`
-                 and assigned via `class 3V3,12V,GND power;`.
+              2. Node IDs: letters, digits, and underscore ONLY. No dots, spaces,
+                 dashes, or unicode. Prefix pure-numeric net names with "N_" (so
+                 "3V3" → "N_3V3", "12V" → "N_12V").
+              3. Node LABELS must ALWAYS be wrapped in double quotes so special
+                 characters are safe. Formats:
+                   - NET:        `N_3V3(["3V3"])`
+                   - COMPONENT:  `U1["U1 — TPS62932DRLR"]`
+                   - TEST POINT: `J5_1{"J5.1 CANPT_H"}`
+                 NEVER write a bare identifier after `{`, `[`, or `([` — always a
+                 quoted string.
+              4. For every component pin that connects to a net, draw an edge
+                 labeled with the pin number, quoted:
+                   `U1 -- "pin 3" --> N_3V3`
+                 Include EVERY pin listed — do not summarise or omit.
+              5. Edge labels must be quoted if they contain anything other than
+                 letters, digits, and underscores.
+              6. Power nets (3V3, 12V, GND) get a class assignment:
+                   `classDef power fill:#f55,color:#fff;`
+                   `class N_3V3,N_12V,GND power;`
               7. Do NOT invent pins, parts, or nets that are not in the input.
+              8. Do NOT use HTML, comments, or `subgraph` blocks.
 
             Respond with ONLY a single JSON object, no prose, no code fences, with
             exactly two string fields:
