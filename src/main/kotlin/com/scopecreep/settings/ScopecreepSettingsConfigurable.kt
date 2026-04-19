@@ -1,6 +1,7 @@
 package com.scopecreep.settings
 
 import com.intellij.openapi.options.Configurable
+import com.intellij.openapi.ui.DialogPanel
 import com.intellij.ui.dsl.builder.bindIntText
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.columns
@@ -12,7 +13,7 @@ class ScopecreepSettingsConfigurable : Configurable {
     private val settings = ScopecreepSettings.getInstance()
     private val state = settings.state.copy()
 
-    private val ui by lazy {
+    private val panel: DialogPanel by lazy {
         panel {
             group("Sidecar") {
                 row("Runner host:") {
@@ -41,11 +42,12 @@ class ScopecreepSettingsConfigurable : Configurable {
 
     override fun getDisplayName(): String = "Scopecreep"
 
-    override fun createComponent(): JComponent = ui
+    override fun createComponent(): JComponent = panel
 
-    override fun isModified(): Boolean = state != settings.state
+    override fun isModified(): Boolean = panel.isModified()
 
     override fun apply() {
+        panel.apply()
         settings.loadState(state.copy())
     }
 
@@ -54,5 +56,6 @@ class ScopecreepSettingsConfigurable : Configurable {
         state.runnerPort = settings.state.runnerPort
         state.openAiApiKey = settings.state.openAiApiKey
         state.openAiModel = settings.state.openAiModel
+        panel.reset()
     }
 }
