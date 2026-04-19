@@ -52,6 +52,10 @@ class SidecarManager : Disposable {
         Files.createDirectories(sidecarDir)
         copyResource("/sidecar/worker.py", workerPy)
         copyResource("/sidecar/requirements.txt", requirementsTxt)
+        // Memory layer modules — worker.py imports these at startup.
+        copyResource("/sidecar/config.py", sidecarDir.resolve("config.py"))
+        copyResource("/sidecar/memory.py", sidecarDir.resolve("memory.py"))
+        copyResource("/sidecar/research.py", sidecarDir.resolve("research.py"))
     }
 
     private fun copyResource(resource: String, target: Path) {
@@ -92,6 +96,15 @@ class SidecarManager : Disposable {
             "--port",
             settings.runnerPort.toString(),
         ).withWorkDirectory(sidecarDir.toFile())
+        // Forward optional integration config via env vars — the sidecar
+        // returns 503 on /memory/* if these are unset, which is correct
+        // behavior when the user hasn't configured them yet.
+        settings.supabaseUrl?.takeIf { it.isNotBlank() }
+            ?.let { cmd.withEnvironment("SCOPECREEP_SUPABASE_URL", it) }
+        settings.supabaseAnonKey?.takeIf { it.isNotBlank() }
+            ?.let { cmd.withEnvironment("SCOPECREEP_SUPABASE_ANON_KEY", it) }
+        settings.nebiusApiKey?.takeIf { it.isNotBlank() }
+            ?.let { cmd.withEnvironment("SCOPECREEP_NEBIUS_API_KEY", it) }
 
         val proc = cmd.createProcess()
         val newHandler = OSProcessHandler(proc, cmd.commandLineString, Charsets.UTF_8)
