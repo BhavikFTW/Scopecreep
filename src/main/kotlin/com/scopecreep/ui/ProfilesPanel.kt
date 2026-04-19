@@ -120,7 +120,7 @@ class ProfilesPanel(private val client: RunnerClient = RunnerClient()) {
         }
     }
 
-    // ---- JSON parsing helpers (intentionally tiny — avoids another dep) ----
+    // ---- JSON parsing helpers (linear scanner — no regex backtracking) ----
 
     data class ProfileRow(val slug: String, val title: String) {
         override fun toString() = title
@@ -129,25 +129,71 @@ class ProfilesPanel(private val client: RunnerClient = RunnerClient()) {
     @VisibleForTesting
     internal fun parseProfileList(body: String): List<ProfileRow> {
         val rows = mutableListOf<ProfileRow>()
-        val titleRegex = Regex("\"title\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
-        val slugRegex = Regex("\"slug\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
-        val titles = titleRegex.findAll(body).map { it.groupValues[1] }.toList()
-        val slugs = slugRegex.findAll(body).map { it.groupValues[1] }.toList()
-        val n = minOf(titles.size, slugs.size)
-        for (i in 0 until n) {
-            rows += ProfileRow(slug = slugs[i], title = titles[i])
+        var cursor = 0
+        while (cursor < body.length) {
+            val slugPair = extractJsonString(body, "slug", cursor) ?: break
+            val titlePair = extractJsonString(body, "title", slugPair.second)
+                ?: extractJsonString(body, "title", cursor) ?: break
+            rows += ProfileRow(slug = slugPair.first, title = titlePair.first)
+            cursor = maxOf(slugPair.second, titlePair.second)
         }
         return rows
     }
 
     @VisibleForTesting
-    internal fun extractContent(body: String): String? {
-        val match = Regex("\"content\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(body)
-            ?: return null
-        return match.groupValues[1]
-            .replace("\\n", "\n")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\\")
+    internal fun extractContent(body: String): String? =
+        extractJsonString(body, "content", 0)?.first
+
+    /**
+     * Extract the next JSON string value for [key], starting at [from].
+     * Linear — reads character-by-character tracking backslash escapes.
+     * Returns (decodedValue, indexAfterClosingQuote) or null if not found.
+     */
+    private fun extractJsonString(body: String, key: String, from: Int): Pair<String, Int>? {
+        val marker = "\"$key\""
+        var keyIdx = body.indexOf(marker, from)
+        if (keyIdx < 0) return null
+        // Skip whitespace + colon + optional whitespace + opening quote.
+        var i = keyIdx + marker.length
+        while (i < body.length && body[i].isWhitespace()) i++
+        if (i >= body.length || body[i] != ':') return null
+        i++
+        while (i < body.length && body[i].isWhitespace()) i++
+        if (i >= body.length || body[i] != '"') return null
+        i++
+        val sb = StringBuilder()
+        while (i < body.length) {
+            val c = body[i]
+            when {
+                c == '\\' && i + 1 < body.length -> {
+                    when (val next = body[i + 1]) {
+                        'n' -> sb.append('\n')
+                        't' -> sb.append('\t')
+                        'r' -> sb.append('\r')
+                        'b' -> sb.append('\b')
+                        'f' -> sb.append('\u000C')
+                        '"' -> sb.append('"')
+                        '\\' -> sb.append('\\')
+                        '/' -> sb.append('/')
+                        'u' -> {
+                            if (i + 5 < body.length) {
+                                val hex = body.substring(i + 2, i + 6)
+                                sb.append(hex.toInt(16).toChar())
+                                i += 4
+                            } else sb.append(next)
+                        }
+                        else -> sb.append(next)
+                    }
+                    i += 2
+                }
+                c == '"' -> return sb.toString() to (i + 1)
+                else -> {
+                    sb.append(c)
+                    i++
+                }
+            }
+        }
+        return null
     }
 
     private class ProfileCellRenderer : javax.swing.DefaultListCellRenderer() {
