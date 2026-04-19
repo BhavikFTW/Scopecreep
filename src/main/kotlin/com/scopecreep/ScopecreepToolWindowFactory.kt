@@ -41,7 +41,10 @@ class ScopecreepToolWindowFactory : ToolWindowFactory {
             factory.createContent(schematic, "Schematic", false),
         )
         toolWindow.contentManager.addContent(
-            factory.createContent(agent, "Agent", false),
+            factory.createContent(agent, "Agent (REST)", false),
+        )
+        toolWindow.contentManager.addContent(
+            factory.createContent(com.scopecreep.ui.TestFlowPanel(project), "Test flow", false),
         )
         toolWindow.contentManager.addContent(
             factory.createContent(waveform, "Waveform", false),

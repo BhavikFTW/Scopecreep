@@ -83,9 +83,17 @@ class SidecarManager : Disposable {
 
         Files.createDirectories(benchyDir)
         for (rel in entries) {
-            val target = benchyDir.resolve(rel)
+            // Manifest entries starting with "../" land outside benchy/ (used
+            // to mirror backend/drivers alongside benchy/ so the CLI's
+            // importlib-based DPS-150 loader can resolve repo_root/backend).
+            val target = benchyDir.resolve(rel).normalize()
             Files.createDirectories(target.parent)
-            copyResource("/sidecar/benchy/$rel", target)
+            // Resource paths in the JAR are flat (Gradle writes siblings of
+            // benchy/ directly under sidecar/). Rewrite "../" prefixes so the
+            // classloader lookup hits the right entry.
+            val resourceRel = if (rel.startsWith("../")) rel.removePrefix("../")
+                              else "benchy/$rel"
+            copyResource("/sidecar/$resourceRel", target)
         }
         // Write manifest itself for debuggability.
         copyResource("/sidecar/benchy/benchy-manifest.txt", benchyManifest)
@@ -155,8 +163,14 @@ class SidecarManager : Disposable {
             "--port",
             settings.agentPort.toString(),
         ).withWorkDirectory(benchyDir.toFile())
-        if (settings.anthropicApiKey.isNotBlank())
-            cmd.withEnvironment("ANTHROPIC_API_KEY", settings.anthropicApiKey)
+        if (settings.openAiApiKey.isNotBlank())
+            cmd.withEnvironment("OPENAI_API_KEY", settings.openAiApiKey)
+        if (settings.openAiModel.isNotBlank())
+            cmd.withEnvironment("OPENAI_MODEL", settings.openAiModel)
+        cmd.withEnvironment("MAX_VOLTAGE", settings.maxVoltage)
+        cmd.withEnvironment("MAX_CURRENT", settings.maxCurrent)
+        if (settings.psuPort.isNotBlank())
+            cmd.withEnvironment("PSU_PORT", settings.psuPort)
 
         agentHandler = spawn("agent", cmd)
         log.info("Scopecreep agent sidecar started on ${settings.runnerHost}:${settings.agentPort}")

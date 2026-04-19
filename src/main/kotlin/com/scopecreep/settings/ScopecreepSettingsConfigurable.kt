@@ -27,8 +27,14 @@ class ScopecreepSettingsConfigurable : Configurable {
                 row("Agent backend port:") {
                     intTextField(1..65535).bindIntText(state::agentPort).columns(6)
                 }
-                row("Anthropic API key:") {
-                    passwordField().bindText(state::anthropicApiKey).columns(40)
+                row("Max voltage (V):") {
+                    textField().bindText(state::maxVoltage).columns(6)
+                }
+                row("Max current (A):") {
+                    textField().bindText(state::maxCurrent).columns(6)
+                }
+                row("PSU serial port (blank=auto):") {
+                    textField().bindText(state::psuPort).columns(20)
                 }
             }
             group("Supabase (memory layer)") {
@@ -84,7 +90,9 @@ class ScopecreepSettingsConfigurable : Configurable {
         state.agentPort = current.agentPort
         state.supabaseUrl = current.supabaseUrl
         state.supabaseAnonKey = current.supabaseAnonKey
-        state.anthropicApiKey = current.anthropicApiKey
+        state.maxVoltage = current.maxVoltage
+        state.maxCurrent = current.maxCurrent
+        state.psuPort = current.psuPort
         state.nebiusApiKey = current.nebiusApiKey
         state.codexProvider = current.codexProvider
         state.openAiApiKey = current.openAiApiKey

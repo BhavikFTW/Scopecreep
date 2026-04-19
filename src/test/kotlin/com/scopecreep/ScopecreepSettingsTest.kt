@@ -29,12 +29,16 @@ class ScopecreepSettingsTest : BasePlatformTestCase() {
                     runnerHost = "192.168.1.5",
                     runnerPort = 8420,
                     agentPort = 8000,
-                    anthropicApiKey = "sk-ant-xyz",
+                    openAiApiKey = "sk-xyz",
+                    maxVoltage = "3.3",
+                    psuPort = "/dev/ttyUSB1",
                 )
             )
             assertEquals("http://192.168.1.5:8000", settings.agentUrl)
             assertEquals("http://192.168.1.5:8420", settings.runnerUrl)
-            assertEquals("sk-ant-xyz", settings.state.anthropicApiKey)
+            assertEquals("sk-xyz", settings.state.openAiApiKey)
+            assertEquals("3.3", settings.state.maxVoltage)
+            assertEquals("/dev/ttyUSB1", settings.state.psuPort)
         } finally {
             settings.loadState(original)
         }

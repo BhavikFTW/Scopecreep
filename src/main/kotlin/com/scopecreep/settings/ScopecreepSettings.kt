@@ -20,11 +20,13 @@ class ScopecreepSettings : PersistentStateComponent<ScopecreepSettings.State> {
         var agentPort: Int = 8000,
         var supabaseUrl: String = "https://dqdaaygmlqifjidiexcs.supabase.co",
         var supabaseAnonKey: String = "",
-        var anthropicApiKey: String = "",
         var nebiusApiKey: String = "",
         var codexProvider: String = "openai",
         var openAiApiKey: String = "",
-        var openAiModel: String = "gpt-4o-mini",
+        var openAiModel: String = "gpt-5-mini",
+        var maxVoltage: String = "5.0",
+        var maxCurrent: String = "1.0",
+        var psuPort: String = "",
     )
 
     private var state = State()

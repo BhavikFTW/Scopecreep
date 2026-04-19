@@ -65,7 +65,12 @@ val bundleBenchyBackend = tasks.register("bundleBenchyBackend") {
             return@doLast
         }
 
-        val includes = listOf("api", "agent", "drivers", "schdoc")
+        // Packages under python/ that must be bundled for both the REST
+        // agent worker and the run_test CLI path.
+        val includes = listOf(
+            "api", "agent", "drivers", "schdoc",
+            "planner", "executor", "evaluator", "cli",
+        )
         val manifest = mutableListOf<String>()
 
         includes.forEach { pkg ->
@@ -86,6 +91,34 @@ val bundleBenchyBackend = tasks.register("bundleBenchyBackend") {
                 f.copyTo(dst, overwrite = true)
                 manifest.add(rel)
             }
+        }
+
+        // Standalone file used by the CLI's usage tracker.
+        srcDir.resolve("_openai_usage.py").takeIf { it.exists() }?.let { f ->
+            f.copyTo(outDir.resolve("_openai_usage.py"), overwrite = true)
+            manifest.add("_openai_usage.py")
+        }
+
+        // The DPS-150 adapter in executor/drivers.py loads
+        // backend/drivers/dps150.py via importlib from repo-root. Mirror that
+        // structure inside the bundle by copying the backend/drivers dir to a
+        // sibling path the CLI can resolve.
+        val backendDrivers = srcDir.parentFile?.resolve("backend/drivers")
+        if (backendDrivers != null && backendDrivers.exists()) {
+            val dst = outDir.parentFile!!.resolve("backend/drivers")
+            dst.mkdirs()
+            backendDrivers.walkTopDown().filter { it.isFile }.forEach { f ->
+                val rel = backendDrivers.toPath().relativize(f.toPath()).toString().replace('\\', '/')
+                if (rel.contains("__pycache__") || rel.endsWith(".pyc")) return@forEach
+                val target = dst.toPath().resolve(rel).toFile()
+                target.parentFile.mkdirs()
+                f.copyTo(target, overwrite = true)
+                // Manifest tracks paths relative to the benchy/ root; use a
+                // prefix so the extractor knows to place them one level up.
+                manifest.add("../backend/drivers/$rel")
+            }
+        } else {
+            logger.warn("bundleBenchyBackend: backend/drivers/ not found alongside $srcDir — DPS-150 CLI path will break.")
         }
 
         val shim = """
