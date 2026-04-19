@@ -116,9 +116,11 @@ is a published, version-tracked record.
   print(profile["content"][:1500])
   ```
 
-  Tell the user to click Run. The new profile gets written to Supabase and
-  auto-published; restart the sidecar (or open a new chat turn) to pull it
-  into the system prompt, then iterate on the actual test code.
+  Tell the user to click Run. The profile is written to Supabase and
+  auto-published; your very next turn will see it in the "Instruments
+  available" section automatically (the database is re-queried each turn).
+  After the user runs the research block, iterate on the actual test code
+  in the following turn.
 
 ## Operating rules
 

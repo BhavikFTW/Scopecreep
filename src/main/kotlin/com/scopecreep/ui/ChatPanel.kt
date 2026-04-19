@@ -136,6 +136,8 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
                 BorderFactory.createEmptyBorder(8, 10, 8, 10),
             )
             alignmentX = Component.LEFT_ALIGNMENT
+            // Let BoxLayout stretch the card horizontally with the parent.
+            maximumSize = Dimension(Int.MAX_VALUE, Int.MAX_VALUE)
             add(labelFor("Scopecreep", Color(100, 180, 120)))
             add(Box.createVerticalStrut(4))
         }
@@ -262,6 +264,7 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
                 BorderFactory.createEmptyBorder(8, 10, 8, 10),
             )
             alignmentX = Component.LEFT_ALIGNMENT
+            maximumSize = Dimension(Int.MAX_VALUE, Int.MAX_VALUE)
             add(labelFor(speaker, accent))
             add(Box.createVerticalStrut(4))
             add(proseArea(content))
@@ -288,6 +291,9 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
         foreground = Color(220, 220, 220)
         border = null
         alignmentX = Component.LEFT_ALIGNMENT
+        // Allow the BoxLayout parent to stretch us horizontally so wrapping
+        // follows the window width instead of the initial preferred width.
+        maximumSize = Dimension(Int.MAX_VALUE, Int.MAX_VALUE)
     }
 
     private fun labelFor(name: String, color: Color): JLabel = JLabel(name).apply {

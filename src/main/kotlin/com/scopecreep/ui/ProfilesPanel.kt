@@ -64,6 +64,9 @@ class ProfilesPanel(private val client: RunnerClient = RunnerClient()) {
         refreshButton.addActionListener { refresh() }
         researchButton.addActionListener { openResearchDialog() }
         refresh()
+        // Pick up profiles researched elsewhere (e.g. a scratch block from
+        // the Chat tab posting to /memory/research) without a manual click.
+        javax.swing.Timer(20_000) { refresh() }.apply { isRepeats = true }.start()
     }
 
     fun refresh() {
