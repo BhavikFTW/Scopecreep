@@ -25,6 +25,7 @@ _STARTED_AT = time.time()
 _config: Config = load_config()
 _store: Optional[ProfileStore] = None
 _researcher: Optional[Researcher] = None
+_chat = None  # type: Optional[object]  # ChatOrchestrator, lazy
 
 
 def _get_store() -> ProfileStore:
@@ -36,6 +37,29 @@ def _get_store() -> ProfileStore:
         sb = create_client(_config.supabase_url, _config.supabase_anon_key)
         _store = ProfileStore(sb)
     return _store
+
+
+def _get_store_optional() -> ProfileStore | None:
+    try:
+        return _get_store()
+    except HTTPException:
+        return None
+
+
+def _get_chat():
+    global _chat
+    if _chat is None:
+        if not _config.openai_api_key:
+            raise HTTPException(status_code=503, detail="openai api key not configured")
+        from openai import OpenAI
+        from chat import ChatOrchestrator
+        client = OpenAI(api_key=_config.openai_api_key)
+        _chat = ChatOrchestrator(
+            openai_client=client,
+            store=_get_store_optional(),
+            model=_config.openai_model,
+        )
+    return _chat
 
 
 def _get_researcher() -> Researcher:
@@ -63,6 +87,7 @@ def health() -> dict:
         "python": platform.python_version(),
         "supabase_configured": bool(_config.supabase_url and _config.supabase_anon_key),
         "nebius_configured": bool(_config.nebius_api_key),
+        "openai_configured": bool(_config.openai_api_key),
     }
 
 
@@ -124,6 +149,30 @@ def memory_remember(req: RememberReq) -> dict:
 def memory_publish(profile_id: str) -> dict:
     _get_store().publish(profile_id)
     return {"id": profile_id, "status": "published"}
+
+
+class ChatTurnReq(BaseModel):
+    messages: list[dict]
+
+
+class ExecReq(BaseModel):
+    code: str
+
+
+@app.post("/chat/turn")
+def chat_turn(req: ChatTurnReq) -> dict:
+    result = _get_chat().run_turn(req.messages)
+    return {
+        "message": result.assistant_message,
+        "code_blocks": result.code_blocks,
+    }
+
+
+@app.post("/exec/python")
+def exec_python(req: ExecReq) -> dict:
+    from exec_runner import run_user_code
+    r = run_user_code(req.code)
+    return {"ok": r.ok, "stdout": r.stdout, "stderr": r.stderr}
 
 
 @app.post("/memory/research")

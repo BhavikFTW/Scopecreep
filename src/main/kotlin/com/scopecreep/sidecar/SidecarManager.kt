@@ -71,11 +71,37 @@ class SidecarManager : Disposable {
         }
     }
 
+    /**
+     * Kill both workers and re-spawn with current settings. Needed because the
+     * python processes read env vars only at launch, so credential edits don't
+     * take effect until the sidecar is recycled.
+     */
+    fun restart() {
+        ApplicationManager.getApplication().executeOnPooledThread {
+            shutdownWorkers()
+            started.set(false)
+            lastError = null
+            startIfNeeded()
+        }
+    }
+
+    private fun shutdownWorkers() {
+        listOf("profile" to profileHandler, "agent" to agentHandler).forEach { (tag, h) ->
+            if (h == null) return@forEach
+            log.info("Scopecreep: stopping $tag sidecar for restart")
+            val p = h.process
+            p.destroy()
+            if (!p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) p.destroyForcibly()
+        }
+        profileHandler = null
+        agentHandler = null
+    }
+
     private fun extractResources() {
         Files.createDirectories(sidecarDir)
         copyResource("/sidecar/worker.py", workerPy)
         copyResource("/sidecar/requirements.txt", requirementsTxt)
-        for (name in listOf("config.py", "memory.py", "research.py")) {
+        for (name in listOf("config.py", "memory.py", "research.py", "chat.py", "exec_runner.py")) {
             copyResource("/sidecar/$name", sidecarDir.resolve(name))
         }
         extractBenchyBundle()
@@ -161,6 +187,10 @@ class SidecarManager : Disposable {
             cmd.withEnvironment("SCOPECREEP_SUPABASE_ANON_KEY", settings.supabaseAnonKey)
         if (settings.nebiusApiKey.isNotBlank())
             cmd.withEnvironment("SCOPECREEP_NEBIUS_API_KEY", settings.nebiusApiKey)
+        if (settings.openAiApiKey.isNotBlank())
+            cmd.withEnvironment("OPENAI_API_KEY", settings.openAiApiKey)
+        if (settings.openAiModel.isNotBlank())
+            cmd.withEnvironment("OPENAI_MODEL", settings.openAiModel)
 
         profileHandler = spawn("profile", cmd)
         log.info("Scopecreep profile sidecar started on ${settings.runnerHost}:${settings.runnerPort}")
@@ -203,6 +233,9 @@ class SidecarManager : Disposable {
 
             override fun processTerminated(event: ProcessEvent) {
                 log.info("Scopecreep $tag sidecar exited with code ${event.exitCode}")
+                if (event.exitCode != 0) {
+                    lastError = "$tag sidecar exited (code ${event.exitCode}) — see idea.log"
+                }
             }
         })
         h.startNotify()

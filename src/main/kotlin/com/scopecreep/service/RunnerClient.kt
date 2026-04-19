@@ -46,6 +46,27 @@ class RunnerClient(
         return executeAndReturn(request)
     }
 
+    /**
+     * Send a chat turn to the sidecar. `messagesJsonArray` is a JSON array of
+     * `{"role":..., "content":...}` — caller builds it to avoid pulling a JSON
+     * lib into this module. Response body is JSON with `message` + `code_blocks`.
+     */
+    fun chatTurn(messagesJsonArray: String): Result {
+        val url = settings.runnerUrl.trimEnd('/') + "/chat/turn"
+        val body = """{"messages":$messagesJsonArray}""".toRequestBody(JSON)
+        val request = Request.Builder().url(url).post(body).build()
+        return executeAndReturn(request)
+    }
+
+    fun execPython(code: String): Result {
+        val url = settings.runnerUrl.trimEnd('/') + "/exec/python"
+        val body = """{"code":${jsonQuoted(code)}}""".toRequestBody(JSON)
+        val request = Request.Builder().url(url).post(body).build()
+        return executeAndReturn(request)
+    }
+
+    internal fun jsonQuote(s: String): String = jsonQuoted(s)
+
     private fun executeAndReturn(request: Request): Result =
         try {
             client.newCall(request).execute().use { response ->

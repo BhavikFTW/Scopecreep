@@ -44,6 +44,19 @@ class ProfileStore:
             return None
         return self._row_to_profile(data)
 
+    def list_published(self, limit: int = 50) -> list[Profile]:
+        res = (
+            self.sb.table("profiles")
+            .select("*")
+            .eq("status", "published")
+            .order("kind")
+            .order("slug")
+            .limit(limit)
+            .execute()
+        )
+        rows = res.data or []
+        return [self._row_to_profile(r) for r in rows]
+
     def search(self, query: str, limit: int = 5) -> list[Profile]:
         res = (
             self.sb.table("profiles")

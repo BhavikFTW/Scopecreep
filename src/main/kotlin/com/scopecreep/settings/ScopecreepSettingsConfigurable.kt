@@ -65,8 +65,8 @@ class ScopecreepSettingsConfigurable : Configurable {
             }
             row {
                 comment(
-                    "Changes to Supabase/Nebius/OpenAI config apply on next sidecar restart " +
-                        "(fully exit and relaunch the sandbox IDE)."
+                    "Applying changes here automatically restarts the sidecar " +
+                        "(~5s). Watch the Ping tab for status."
                 )
             }
         }
@@ -79,8 +79,24 @@ class ScopecreepSettingsConfigurable : Configurable {
     override fun isModified(): Boolean = panel.isModified()
 
     override fun apply() {
+        val before = settings.state.copy()
         panel.apply()
         settings.loadState(state.copy())
+        val after = settings.state
+        val credsChanged = before.supabaseUrl != after.supabaseUrl ||
+            before.supabaseAnonKey != after.supabaseAnonKey ||
+            before.nebiusApiKey != after.nebiusApiKey ||
+            before.openAiApiKey != after.openAiApiKey ||
+            before.openAiModel != after.openAiModel ||
+            before.maxVoltage != after.maxVoltage ||
+            before.maxCurrent != after.maxCurrent ||
+            before.psuPort != after.psuPort ||
+            before.runnerHost != after.runnerHost ||
+            before.runnerPort != after.runnerPort ||
+            before.agentPort != after.agentPort
+        if (credsChanged) {
+            com.scopecreep.sidecar.SidecarManager.getInstance().restart()
+        }
     }
 
     override fun reset() {

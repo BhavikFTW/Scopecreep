@@ -45,16 +45,33 @@ class ScopecreepPanel {
 
     private val statusLabel = JBLabel("Scopecreep — idle")
     private val pingButton = JButton("Ping sidecar")
+    private val restartButton = JButton("Restart sidecar")
     private val client = RunnerClient()
 
     val root: JBPanel<JBPanel<*>> = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT)).apply {
         border = JBUI.Borders.empty(8)
         add(statusLabel)
         add(pingButton)
+        add(restartButton)
     }
 
     init {
         pingButton.addActionListener { ping() }
+        restartButton.addActionListener { restart() }
+    }
+
+    private fun restart() {
+        restartButton.isEnabled = false
+        pingButton.isEnabled = false
+        statusLabel.text = "Restarting sidecar…"
+        com.scopecreep.sidecar.SidecarManager.getInstance().restart()
+        ApplicationManager.getApplication().executeOnPooledThread {
+            Thread.sleep(4000)
+            SwingUtilities.invokeLater {
+                restartButton.isEnabled = true
+                ping()
+            }
+        }
     }
 
     private fun ping() {
