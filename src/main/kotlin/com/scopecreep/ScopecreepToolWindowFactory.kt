@@ -2,6 +2,7 @@ package com.scopecreep
 
 import com.scopecreep.service.RunnerClient
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -13,7 +14,7 @@ import java.awt.FlowLayout
 import javax.swing.JButton
 import javax.swing.SwingUtilities
 
-class ScopecreepToolWindowFactory : ToolWindowFactory {
+class ScopecreepToolWindowFactory : ToolWindowFactory, DumbAware {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val factory = ContentFactory.getInstance()
