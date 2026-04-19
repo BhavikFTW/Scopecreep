@@ -41,7 +41,7 @@ class SchematicTestbenchPanel(
         )
         val schematic = SchematicSummaryPanel(
             project = project,
-            onUseInAgent = { markdown -> agent.useMarkdownAsHint(markdown) },
+            onSchdocReady = { file -> agent.loadSchdocJson(file) },
         )
 
         val results = JBTabbedPane().apply {

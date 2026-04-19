@@ -1,8 +1,6 @@
 package com.scopecreep.ui
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileChooser.FileChooser
-import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.project.Project
 import com.scopecreep.service.AgentClient
 import com.scopecreep.service.JsonFields
@@ -50,7 +48,6 @@ class AgentSessionPanel(
         text = DEFAULT_SCHEMATIC_JSON
         rows = 10
     }
-    private val loadSchdoc = JButton("Load .SchDoc → JSON")
     private val startButton = JButton("Start session")
     private val cancelButton = JButton("Cancel").apply { isEnabled = false }
     private val resumeButton = JButton("Resume (probe placed)").apply { isEnabled = false }
@@ -83,7 +80,6 @@ class AgentSessionPanel(
 
     init {
         val header = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
-            add(loadSchdoc)
             add(startButton)
             add(cancelButton)
             add(resumeButton)
@@ -120,27 +116,18 @@ class AgentSessionPanel(
         add(top, BorderLayout.NORTH)
         add(split, BorderLayout.CENTER)
 
-        loadSchdoc.addActionListener { loadSchdocToJson() }
         startButton.addActionListener { startSession() }
         cancelButton.addActionListener { cancelSession() }
         resumeButton.addActionListener { resumeSession() }
     }
 
-    /** Populate the schematic-JSON area from the parsed Markdown panel. */
-    fun useMarkdownAsHint(@Suppress("UNUSED_PARAMETER") markdown: String) {
-        // Markdown output from /schematic/parse is not the structured JSON
-        // /agent/sessions expects. We intentionally don't overwrite the JSON
-        // area — the user should use "Load .SchDoc → JSON" to populate it.
-        statusLabel.text = "Parsed Markdown available. Use \"Load .SchDoc → JSON\" to populate."
-    }
-
-    private fun loadSchdocToJson() {
-        val descriptor = FileChooserDescriptor(true, false, false, false, false, false)
-            .withTitle("Select Altium .SchDoc file")
-        val vf = FileChooser.chooseFile(descriptor, project, null) ?: return
-        val f = File(vf.path)
+    /**
+     * Parse [f] into structured JSON via the agent backend and populate the
+     * Schematic JSON area. Called programmatically from [SchematicSummaryPanel]
+     * after the user picks a .SchDoc — no separate button in this panel.
+     */
+    fun loadSchdocJson(f: File) {
         statusLabel.text = "Parsing ${f.name} → JSON…"
-        loadSchdoc.isEnabled = false
         ApplicationManager.getApplication().executeOnPooledThread {
             val res = client.parseSchematicJson(f)
             SwingUtilities.invokeLater {
@@ -152,7 +139,6 @@ class AgentSessionPanel(
                     is AgentClient.Result.Err ->
                         statusLabel.text = "Parse error: ${res.message}"
                 }
-                loadSchdoc.isEnabled = true
             }
         }
     }
