@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import os
 import platform
+import shutil
+import tempfile
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 
 app = FastAPI(title="Scopecreep Sidecar", version="0.0.1")
 
@@ -28,3 +30,18 @@ def health() -> dict:
         "pid": os.getpid(),
         "python": platform.python_version(),
     }
+
+
+@app.post("/upload")
+async def upload(
+    schematic: UploadFile = File(...),
+    pcb: UploadFile = File(...),
+) -> dict:
+    tmp_dir = tempfile.mkdtemp(prefix="scopecreep_")
+    schematic_path = os.path.join(tmp_dir, schematic.filename or "schematic")
+    pcb_path = os.path.join(tmp_dir, pcb.filename or "pcb")
+    with open(schematic_path, "wb") as f:
+        shutil.copyfileobj(schematic.file, f)
+    with open(pcb_path, "wb") as f:
+        shutil.copyfileobj(pcb.file, f)
+    return {"status": "ok", "schematic": schematic_path, "pcb": pcb_path}
