@@ -56,13 +56,17 @@ val bundleBenchyBackend = tasks.register("bundleBenchyBackend") {
         outDir.mkdirs()
 
         if (!srcDir.exists()) {
-            logger.warn("bundleBenchyBackend: source $srcDir not found — emitting empty bundle.")
-            outDir.resolve("benchy-manifest.txt").writeText("")
-            outDir.resolve("agent_worker.py").writeText(
-                "# Placeholder — benchy backend was not bundled at build time.\n" +
-                    "raise SystemExit('benchy backend not bundled; set -Pbenchy.backend.path=/abs/to/python')\n"
+            throw GradleException(
+                """
+                |bundleBenchyBackend: backend source not found at $srcDir.
+                |
+                |If you cloned this repo without submodules, run:
+                |    git submodule update --init --recursive
+                |
+                |To point the bundler at a checkout outside the submodule, rebuild with:
+                |    ./gradlew buildPlugin -Pbenchy.backend.path=/absolute/path/to/python
+                """.trimMargin()
             )
-            return@doLast
         }
 
         // Packages under python/ that must be bundled for both the REST
