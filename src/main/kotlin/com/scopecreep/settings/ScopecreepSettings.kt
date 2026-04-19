@@ -17,6 +17,10 @@ class ScopecreepSettings : PersistentStateComponent<ScopecreepSettings.State> {
     data class State(
         var runnerHost: String = "127.0.0.1",
         var runnerPort: Int = 8420,
+        var supabaseUrl: String = "https://dqdaaygmlqifjidiexcs.supabase.co",
+        var supabaseAnonKey: String = "",
+        var nebiusApiKey: String = "",
+        var codexProvider: String = "openai",
         var openAiApiKey: String = "",
         var openAiModel: String = "gpt-4o-mini",
     )
