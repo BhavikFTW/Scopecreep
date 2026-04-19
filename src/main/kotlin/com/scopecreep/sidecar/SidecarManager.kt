@@ -52,6 +52,10 @@ class SidecarManager : Disposable {
         Files.createDirectories(sidecarDir)
         copyResource("/sidecar/worker.py", workerPy)
         copyResource("/sidecar/requirements.txt", requirementsTxt)
+        // worker.py imports these — extract them alongside.
+        for (name in listOf("config.py", "memory.py", "research.py")) {
+            copyResource("/sidecar/$name", sidecarDir.resolve(name))
+        }
     }
 
     private fun copyResource(resource: String, target: Path) {
@@ -92,6 +96,15 @@ class SidecarManager : Disposable {
             "--port",
             settings.runnerPort.toString(),
         ).withWorkDirectory(sidecarDir.toFile())
+        // Forward memory-layer config to the uvicorn process. Fields default to
+        // "" so we only forward non-empty values; sidecar returns 503 on
+        // /memory/* if these are missing, which is correct before user pastes keys.
+        if (settings.supabaseUrl.isNotBlank())
+            cmd.withEnvironment("SCOPECREEP_SUPABASE_URL", settings.supabaseUrl)
+        if (settings.supabaseAnonKey.isNotBlank())
+            cmd.withEnvironment("SCOPECREEP_SUPABASE_ANON_KEY", settings.supabaseAnonKey)
+        if (settings.nebiusApiKey.isNotBlank())
+            cmd.withEnvironment("SCOPECREEP_NEBIUS_API_KEY", settings.nebiusApiKey)
 
         val proc = cmd.createProcess()
         val newHandler = OSProcessHandler(proc, cmd.commandLineString, Charsets.UTF_8)

@@ -11,6 +11,7 @@ kotlin {
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.commonmark:commonmark:0.22.0")
 
     testImplementation("junit:junit:4.13.2")
 
