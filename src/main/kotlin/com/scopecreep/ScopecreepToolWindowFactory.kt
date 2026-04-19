@@ -81,10 +81,14 @@ class ScopecreepPanel {
         statusLabel.text = "Pinging…"
         ApplicationManager.getApplication().executeOnPooledThread {
             val result = client.ping()
+            val sidecarErr = com.scopecreep.sidecar.SidecarManager.getInstance().lastStartupError()
             SwingUtilities.invokeLater {
                 statusLabel.text = when (result) {
                     is RunnerClient.Result.Ok -> "pong — ${result.body.take(80)}"
-                    is RunnerClient.Result.Err -> "error: ${result.message}"
+                    is RunnerClient.Result.Err -> {
+                        if (sidecarErr != null) "sidecar failed to start: $sidecarErr"
+                        else "error: ${result.message}"
+                    }
                 }
                 pingButton.isEnabled = true
             }

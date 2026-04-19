@@ -227,6 +227,11 @@ The installed plugin behaves identically to the sandbox — same
 | Port 8420 or 8000 in use | Change in Settings → Sidecar → port fields, relaunch |
 | After changing API keys, behavior unchanged | You must **fully quit** the sandbox IDE — settings change at spawn time |
 
+**Note:** the sidecar is an application-level service. Closing a project
+leaves both uvicorns running; they exit only when the IDE itself shuts down.
+This is intentional (one sidecar shared across projects) but differs from
+the earlier MVP plan.
+
 Full reset (wipes sidecar state, venv, profile cache):
 
 ```bash

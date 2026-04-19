@@ -30,6 +30,20 @@ class SidecarManager : Disposable {
     @Volatile
     private var agentHandler: OSProcessHandler? = null
 
+    /**
+     * User-visible startup status so UI surfaces (Ping tab, etc.) can
+     * report sidecar failures instead of silently looking broken. `null`
+     * means startup hasn't been attempted; empty string means success.
+     */
+    @Volatile
+    private var lastError: String? = null
+
+    /** Returns the last startup error, or null if startup is pending/OK. */
+    fun lastStartupError(): String? = lastError?.takeIf { it.isNotEmpty() }
+
+    fun isRunning(): Boolean =
+        started.get() && (agentHandler != null || profileHandler != null)
+
     private val home: Path = Paths.get(System.getProperty("user.home"), ".scopecreep")
     private val sidecarDir: Path = home.resolve("sidecar")
     private val benchyDir: Path = sidecarDir.resolve("benchy")
@@ -47,8 +61,11 @@ class SidecarManager : Disposable {
                 installRequirements()
                 launchProfileWorker()
                 launchAgentWorker()
+                lastError = ""
             } catch (t: Throwable) {
-                log.warn("Scopecreep sidecar failed to start: ${t.message}", t)
+                val msg = t.message ?: t.javaClass.simpleName
+                log.warn("Scopecreep sidecar failed to start: $msg", t)
+                lastError = msg
                 started.set(false)
             }
         }

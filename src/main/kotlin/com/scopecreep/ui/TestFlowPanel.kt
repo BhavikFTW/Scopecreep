@@ -50,6 +50,7 @@ class TestFlowPanel(
     @Volatile private var selected: File? = null
     @Volatile private var process: Process? = null
     @Volatile private var stdin: OutputStreamWriter? = null
+    @Volatile private var lastReportDir: String? = null
 
     init {
         val top = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
@@ -91,6 +92,9 @@ class TestFlowPanel(
         val venvPython = if (System.getProperty("os.name").lowercase().contains("win"))
             home.resolve("venv").resolve("Scripts").resolve("python.exe")
         else home.resolve("venv").resolve("bin").resolve("python3")
+        val reports = home.resolve("reports")
+        reports.toFile().mkdirs()
+        lastReportDir = reports.toString()
 
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
@@ -98,16 +102,14 @@ class TestFlowPanel(
                     venvPython.toString(),
                     "-m", "cli.run_test",
                     schdoc.absolutePath,
+                    "--report-dir", reports.toString(),
                 ).directory(benchy.toFile()).redirectErrorStream(true)
                 val env = pb.environment()
                 if (settings.openAiApiKey.isNotBlank()) env["OPENAI_API_KEY"] = settings.openAiApiKey
                 if (settings.openAiModel.isNotBlank()) env["OPENAI_MODEL"] = settings.openAiModel
-                env["MAX_VOLTAGE"] = settings.maxVoltage
-                env["MAX_CURRENT"] = settings.maxCurrent
+                if (settings.maxVoltage.isNotBlank()) env["MAX_VOLTAGE"] = settings.maxVoltage
+                if (settings.maxCurrent.isNotBlank()) env["MAX_CURRENT"] = settings.maxCurrent
                 if (settings.psuPort.isNotBlank()) env["PSU_PORT"] = settings.psuPort
-                // Make reports land somewhere the user can find.
-                val reports = home.resolve("reports")
-                reports.toFile().mkdirs()
                 env["PYTHONUNBUFFERED"] = "1"
 
                 val p = pb.start()
@@ -139,6 +141,12 @@ class TestFlowPanel(
             appendLine("[input] ${if (text.isEmpty()) "<enter>" else text}\n")
         } catch (t: Throwable) {
             appendLine("[input error] ${t.message}\n")
+            // Pipe is gone; disable interactive controls so the user stops
+            // clicking into a dead subprocess.
+            stdin = null
+            approveButton.isEnabled = false
+            nextButton.isEnabled = false
+            abortButton.isEnabled = false
         }
     }
 
@@ -159,7 +167,7 @@ class TestFlowPanel(
     }
 
     private fun exitHint(code: Int): String = when (code) {
-        0 -> "Report written; look for reports/*.json."
+        0 -> "Report written to ${lastReportDir ?: "<unknown>"}/*.json."
         1 -> "User aborted."
         2 -> "Parse error."
         3 -> "Planner error (check OpenAI key / network)."
