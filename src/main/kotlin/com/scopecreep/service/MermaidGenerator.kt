@@ -16,47 +16,90 @@ class MermaidGenerator(
         val openAi = clientFactory()
             ?: return Result.Err("OpenAI API key not set — Settings → Tools → Scopecreep")
 
-        val system = """
-            You are a hardware-schematic assistant. Given a PCB analysis (components,
-            pins, nets, connectors, test points), produce a short overview plus a
-            Mermaid flowchart that captures the full net-level connectivity:
+        // Pass 1: normalize the messy analysis into a clean connectivity table.
+        val normalized = when (val r = openAi.chat(NORMALIZE_SYSTEM, analysis)) {
+            is OpenAiClient.Result.Err -> return Result.Err("Normalize: ${r.message}")
+            is OpenAiClient.Result.Ok -> r.text
+        }
 
-            DIAGRAM RULES — follow all of them strictly. Output MUST be valid
+        // Pass 2: turn the clean table into summary + Mermaid.
+        return when (val r = openAi.chat(MERMAID_SYSTEM, normalized)) {
+            is OpenAiClient.Result.Err -> Result.Err("Mermaid: ${r.message}")
+            is OpenAiClient.Result.Ok -> parse(r.text)
+        }
+    }
+
+    companion object Prompts {
+        private val NORMALIZE_SYSTEM = """
+            You are a PCB netlist normalizer. Given a messy schematic analysis,
+            extract every component and every pin-to-net connection and output a
+            CLEAN, DETERMINISTIC block in EXACTLY this format (no prose, no
+            markdown, no code fences):
+
+            NETS
+            - <net_name>
+            - <net_name>
+            ...
+
+            COMPONENTS
+            - <refdes> | <part/value> | <role>
+            - <refdes> | <part/value> | <role>
+            ...
+
+            CONNECTIONS
+            - <refdes>.<pin> -> <net_name>
+            - <refdes>.<pin> -> <net_name>
+            ...
+
+            TESTPOINTS
+            - <connector>.<pin> -> <net_name>
+            ...
+
+            Rules:
+            - Emit every connection implied by the input. If the input only lists
+              "loads" for a net, each load becomes one connection with pin = "?"
+              if unknown.
+            - Net names: keep exactly as given (e.g. "3V3", "NET_452").
+            - Do not invent components or pins. If a pin number is unknown, use "?".
+            - No duplicates, no commentary, no trailing blank lines.
+        """.trimIndent()
+
+        private val MERMAID_SYSTEM = """
+            You are given a CLEAN, DETERMINISTIC PCB netlist (sections: NETS,
+            COMPONENTS, CONNECTIONS, TESTPOINTS). Produce a short overview plus a
+            Mermaid flowchart of the net-level connectivity. Output MUST be valid
             Mermaid; syntax errors are unacceptable.
 
+            DIAGRAM RULES:
               1. Start with "flowchart LR".
               2. Node IDs: letters, digits, and underscore ONLY. No dots, spaces,
-                 dashes, or unicode. Prefix pure-numeric net names with "N_" (so
-                 "3V3" → "N_3V3", "12V" → "N_12V").
-              3. Node LABELS must ALWAYS be wrapped in double quotes so special
-                 characters are safe. Formats:
+                 dashes, or unicode. For nets whose names start with a digit,
+                 prefix with "N_" (so "3V3" → "N_3V3", "12V" → "N_12V").
+              3. Node LABELS must ALWAYS be wrapped in double quotes:
                    - NET:        `N_3V3(["3V3"])`
                    - COMPONENT:  `U1["U1 — TPS62932DRLR"]`
-                   - TEST POINT: `J5_1{"J5.1 CANPT_H"}`
-                 NEVER write a bare identifier after `{`, `[`, or `([` — always a
-                 quoted string.
-              4. For every component pin that connects to a net, draw an edge
-                 labeled with the pin number, quoted:
-                   `U1 -- "pin 3" --> N_3V3`
-                 Include EVERY pin listed — do not summarise or omit.
-              5. Edge labels must be quoted if they contain anything other than
-                 letters, digits, and underscores.
-              6. Power nets (3V3, 12V, GND) get a class assignment:
-                   `classDef power fill:#f55,color:#fff;`
-                   `class N_3V3,N_12V,GND power;`
-              7. Do NOT invent pins, parts, or nets that are not in the input.
-              8. Do NOT use HTML, comments, or `subgraph` blocks.
+                   - TESTPOINT:  `J5_1{"J5.1 CANPT_H"}`
+                 NEVER write a bare identifier after `{`, `[`, or `([`.
+              4. For every line in CONNECTIONS and TESTPOINTS, draw a directed
+                 edge from the component to the net, labeled with the pin number
+                 (quoted): `U1 -- "3" --> N_3V3`. Use "?" for unknown pins.
+              5. Power nets (GND, 3V3, 12V, etc.) get a class:
+                   classDef power fill:#f55,color:#fff;
+                   class GND,N_3V3,N_12V power;
+                 Only include net ids that actually appear as nodes.
+              6. Do NOT use HTML, comments, or `subgraph` blocks.
+              7. Do NOT invent pins, parts, or nets.
 
             Respond with ONLY a single JSON object, no prose, no code fences, with
             exactly two string fields:
               "summary"  — 2-4 sentences a non-expert can read.
               "mermaid"  — the full flowchart obeying the rules above.
-            Do not wrap the JSON in markdown.
         """.trimIndent()
 
-        return when (val r = openAi.chat(system, analysis)) {
-            is OpenAiClient.Result.Err -> Result.Err(r.message)
-            is OpenAiClient.Result.Ok -> parse(r.text)
+        private fun defaultClient(): OpenAiClient? {
+            val s = ScopecreepSettings.getInstance().state
+            val key = s.openAiApiKey.takeIf { it.isNotBlank() } ?: return null
+            return OpenAiClient(apiKey = key, model = s.openAiModel)
         }
     }
 
@@ -115,13 +158,5 @@ class MermaidGenerator(
     sealed class Result {
         data class Ok(val summary: String, val mermaid: String) : Result()
         data class Err(val message: String) : Result()
-    }
-
-    companion object {
-        private fun defaultClient(): OpenAiClient? {
-            val s = ScopecreepSettings.getInstance().state
-            val key = s.openAiApiKey.takeIf { it.isNotBlank() } ?: return null
-            return OpenAiClient(apiKey = key, model = s.openAiModel)
-        }
     }
 }
