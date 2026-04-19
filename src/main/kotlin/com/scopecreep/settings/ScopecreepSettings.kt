@@ -20,6 +20,8 @@ class ScopecreepSettings : PersistentStateComponent<ScopecreepSettings.State> {
         var supabaseUrl: String? = "https://dqdaaygmlqifjidiexcs.supabase.co",
         var supabaseAnonKey: String? = null,
         var nebiusApiKey: String? = null,
+        var openAiApiKey: String? = null,
+        var openAiModel: String = "gpt-4o-mini",
         var codexProvider: String = "openai",   // openai | nebius-fast | nebius-balanced | nebius-precise
     )
 
