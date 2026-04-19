@@ -131,8 +131,11 @@ def memory_research(req: ResearchReq) -> dict:
     md = _get_researcher().draft_profile(req.instrument_name)
     slug = req.instrument_name.lower().replace(" ", "-").replace("/", "-")[:64]
     title = req.instrument_name
+    # Hackathon mode: auto-publish so the researched profile appears in the
+    # list immediately. Post-MVP, flip this back to "draft" and wire the
+    # Publish button to flip it later after user review.
     new_id = _get_store().remember(Profile(
         id=None, kind="device", slug=slug, title=title,
-        content=md, status="draft",
+        content=md, status="published",
     ))
     return {"id": new_id, "slug": slug, "title": title, "content": md}
