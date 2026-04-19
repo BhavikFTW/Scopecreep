@@ -30,6 +30,28 @@ class RunnerClient(
         }
     }
 
+    fun parseSchematic(schdoc: File): Result {
+        val url = settings.runnerUrl.trimEnd('/') + "/schematic/parse"
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart(
+                "file",
+                schdoc.name,
+                schdoc.asRequestBody("application/octet-stream".toMediaType()),
+            )
+            .build()
+        val request = Request.Builder().url(url).post(body).build()
+        return try {
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (response.isSuccessful) Result.Ok(text)
+                else Result.Err("HTTP ${response.code}: ${text.take(200)}")
+            }
+        } catch (t: Throwable) {
+            Result.Err(t.message ?: t.javaClass.simpleName)
+        }
+    }
+
     fun uploadFiles(schematic: File, pcb: File): Result {
         val url = settings.runnerUrl.trimEnd('/') + "/upload"
         val body = MultipartBody.Builder()
@@ -58,8 +80,8 @@ class RunnerClient(
 
     companion object {
         private val defaultClient: OkHttpClient = OkHttpClient.Builder()
-            .connectTimeout(2, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
             .build()
     }
 }
