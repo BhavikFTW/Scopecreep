@@ -1,8 +1,11 @@
 package com.scopecreep
 
 import com.scopecreep.service.RunnerClient
+import com.scopecreep.ui.MermaidPanel
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
@@ -16,9 +19,19 @@ import javax.swing.SwingUtilities
 class ScopecreepToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val panel = ScopecreepPanel()
-        val content = ContentFactory.getInstance().createContent(panel.root, null, false)
-        toolWindow.contentManager.addContent(content)
+        val factory = ContentFactory.getInstance()
+
+        val pingTab = factory.createContent(ScopecreepPanel().root, "Ping", false)
+        toolWindow.contentManager.addContent(pingTab)
+
+        val mermaidDisposable: Disposable = Disposer.newDisposable("ScopecreepMermaidPanel")
+        Disposer.register(toolWindow.disposable, mermaidDisposable)
+        val mermaidTab = factory.createContent(
+            MermaidPanel(project, mermaidDisposable).root,
+            "Diagram",
+            false,
+        )
+        toolWindow.contentManager.addContent(mermaidTab)
     }
 
     override fun shouldBeAvailable(project: Project): Boolean = true

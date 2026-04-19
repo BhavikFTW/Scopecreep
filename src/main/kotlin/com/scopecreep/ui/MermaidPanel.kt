@@ -1,10 +1,10 @@
 package com.scopecreep.ui
 
 import com.intellij.ide.scratch.ScratchRootType
+import com.intellij.lang.Language
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
@@ -134,11 +134,11 @@ class MermaidPanel(
 
     private fun openFullAnalysis() {
         val text = currentAnalysis ?: return
-        val md = FileTypeManager.getInstance().getFileTypeByExtension("md")
+        val markdown = Language.findLanguageByID("Markdown")
         val file = ScratchRootType.getInstance().createScratchFile(
             project,
             "scopecreep-analysis.md",
-            md,
+            markdown,
             text,
         ) ?: return
         FileEditorManager.getInstance(project).openFile(file, true)
