@@ -151,7 +151,11 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
             if (before.isNotBlank()) card.add(proseArea(before.trim()))
             card.add(Box.createVerticalStrut(6))
             val path = m.groupValues[1].ifBlank { null }
-            card.add(codeBlockCard(m.groupValues[2].trim(), path))
+            val code = m.groupValues[2].trim()
+            // Auto-write path= blocks to the project as soon as they arrive.
+            // The Save button stays as a manual re-save after edits.
+            val autoSaveResult = path?.let { writeToProject(it, code) }
+            card.add(codeBlockCard(code, path, autoSaveResult))
             card.add(Box.createVerticalStrut(6))
             last = m.range.last + 1
         }
@@ -165,7 +169,7 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
         scrollToBottom()
     }
 
-    private fun codeBlockCard(code: String, suggestedPath: String?): JPanel {
+    private fun codeBlockCard(code: String, suggestedPath: String?, autoSaveStatus: String? = null): JPanel {
         val codeArea = JTextArea(code).apply {
             font = Font(Font.MONOSPACED, Font.PLAIN, 12)
             background = Color(25, 25, 25)
@@ -188,7 +192,11 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
         val pathField = JTextField(suggestedPath ?: "", 28).apply {
             toolTipText = "Project-relative path. Save writes here."
         }
-        val saveButton = JButton(if (suggestedPath != null) "Save" else "Save as…")
+        val saveButton = JButton(if (suggestedPath != null) "Re-save" else "Save as…")
+        if (autoSaveStatus != null) {
+            output.isVisible = true
+            output.text = autoSaveStatus
+        }
         copyButton.addActionListener {
             val sel = java.awt.datatransfer.StringSelection(codeArea.text)
             java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(sel, null)

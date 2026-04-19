@@ -58,6 +58,17 @@ class RunnerClient(
         return executeAndReturn(request)
     }
 
+    /**
+     * Cache a parsed schematic dict for future chat turns. Body must already
+     * be a valid JSON object (e.g. the response from /schematic/parse.json).
+     */
+    fun setSchematicContext(schematicJson: String): Result {
+        val url = settings.runnerUrl.trimEnd('/') + "/chat/context/schematic"
+        val body = """{"schematic":$schematicJson}""".toRequestBody(JSON)
+        val request = Request.Builder().url(url).post(body).build()
+        return executeAndReturn(request)
+    }
+
     fun execPython(code: String): Result {
         val url = settings.runnerUrl.trimEnd('/') + "/exec/python"
         val body = """{"code":${jsonQuoted(code)}}""".toRequestBody(JSON)

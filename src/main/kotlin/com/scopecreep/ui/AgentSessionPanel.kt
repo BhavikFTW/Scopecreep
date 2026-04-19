@@ -40,6 +40,7 @@ import javax.swing.text.html.HTMLEditorKit
 class AgentSessionPanel(
     private val project: Project,
     private val client: AgentClient = AgentClient(),
+    private val runner: com.scopecreep.service.RunnerClient = com.scopecreep.service.RunnerClient(),
     /** Optional hook: called with per-snapshot status lines. */
     private val onResult: ((String) -> Unit)? = null,
     /** Optional hook: raw report JSON when the session reaches a terminal state. */
@@ -151,6 +152,11 @@ class AgentSessionPanel(
                         schematicJson.text = res.body
                         statusLabel.text = "Loaded ${f.name}."
                         startButton.isEnabled = true
+                        // Share with the chat tab so generated tests reference
+                        // this schematic's probe points.
+                        ApplicationManager.getApplication().executeOnPooledThread {
+                            runner.setSchematicContext(res.body)
+                        }
                     }
                     is AgentClient.Result.Err ->
                         statusLabel.text = "Parse error: ${res.message}"

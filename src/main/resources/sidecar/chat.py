@@ -128,6 +128,23 @@ class ChatOrchestrator:
         self.client = openai_client
         self.store = store
         self.model = model
+        # Latest schematic context set by the Schematic Testbench tab via
+        # /chat/context/schematic. Kept as a dict so we can stringify it
+        # compactly for the system prompt.
+        self.schematic_context: dict | None = None
+
+    def set_schematic_context(self, schematic: dict | None) -> None:
+        self.schematic_context = schematic
+
+    def _schematic_section(self) -> str:
+        if not self.schematic_context:
+            return "(no schematic uploaded yet — ask the user to parse one in " \
+                   "the Schematic Testbench tab if relevant)"
+        import json as _json
+        try:
+            return "```json\n" + _json.dumps(self.schematic_context, indent=2)[:6000] + "\n```"
+        except Exception:  # noqa: BLE001
+            return str(self.schematic_context)[:6000]
 
     def _profiles_section(self) -> str:
         if self.store is None:
@@ -148,6 +165,10 @@ class ChatOrchestrator:
             SYSTEM_BASE
             + "\n\n## Instruments available (from memory layer)\n\n"
             + self._profiles_section()
+            + "\n\n## Current schematic under test\n\n"
+            + self._schematic_section()
+            + "\n\nWhen generating tests, reference the probe_points from the "
+              "schematic above by label + net. Don't ask the user to restate them."
         )
 
     def run_turn(self, messages: list[dict[str, Any]]) -> TurnResult:

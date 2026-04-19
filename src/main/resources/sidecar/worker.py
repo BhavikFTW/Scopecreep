@@ -159,10 +159,50 @@ class ExecReq(BaseModel):
     code: str
 
 
+class SchematicContextReq(BaseModel):
+    schematic: dict
+
+
+_SCHEMATIC_CACHE = os.path.join(
+    os.path.expanduser("~"), ".scopecreep", "latest_schematic.json"
+)
+
+
+def _load_cached_schematic() -> dict | None:
+    try:
+        import json as _json
+        if os.path.exists(_SCHEMATIC_CACHE):
+            with open(_SCHEMATIC_CACHE) as f:
+                return _json.load(f)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+@app.post("/chat/context/schematic")
+def set_schematic_context(req: SchematicContextReq) -> dict:
+    import json as _json
+    os.makedirs(os.path.dirname(_SCHEMATIC_CACHE), exist_ok=True)
+    with open(_SCHEMATIC_CACHE, "w") as f:
+        _json.dump(req.schematic, f)
+    try:
+        _get_chat().set_schematic_context(req.schematic)
+    except HTTPException:
+        # chat not wired yet (no OpenAI key) — still persist for later.
+        pass
+    return {"status": "ok"}
+
+
 @app.post("/chat/turn")
 def chat_turn(req: ChatTurnReq) -> dict:
     try:
-        result = _get_chat().run_turn(req.messages)
+        chat = _get_chat()
+        # Rehydrate schematic context from disk on first turn after restart.
+        if chat.schematic_context is None:
+            cached = _load_cached_schematic()
+            if cached is not None:
+                chat.set_schematic_context(cached)
+        result = chat.run_turn(req.messages)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
