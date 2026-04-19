@@ -2,6 +2,7 @@ package com.scopecreep.ui
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -323,10 +324,22 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
                     val parent = VfsUtil.createDirectoryIfMissing(baseVf, relPath.substringBeforeLast('/', ""))
                         ?: baseVf
                     val existing = parent.findChild(target.name)
-                    val vf = existing ?: parent.createChildData(this, target.name)
-                    vf.setBinaryContent(content.toByteArray(Charsets.UTF_8))
+                    val fdm = FileDocumentManager.getInstance()
+                    val cachedDoc = existing?.let { fdm.getCachedDocument(it) }
+                    if (existing != null && cachedDoc != null) {
+                        // File is already open in an editor — writing via
+                        // setBinaryContent triggers an async reload that fails
+                        // modality checks on recent platforms. Write to the
+                        // Document directly; the editor updates in-place and
+                        // saveDocument syncs the change to disk.
+                        cachedDoc.setText(content)
+                        fdm.saveDocument(cachedDoc)
+                    } else {
+                        val vf = existing ?: parent.createChildData(this, target.name)
+                        vf.setBinaryContent(content.toByteArray(Charsets.UTF_8))
+                        FileEditorManager.getInstance(proj).openFile(vf, true)
+                    }
                     result.append("[saved] ").append(relPath)
-                    FileEditorManager.getInstance(proj).openFile(vf, true)
                 }
             } catch (t: Throwable) {
                 err[0] = t
