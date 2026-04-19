@@ -68,6 +68,8 @@ data class SessionSnapshot(
     val completed: Int,
     val total: Int,
     val currentProbe: ProbePrompt? = null,
+    /** Raw `proposed_plan` array JSON when the session is PLAN_READY, else null. */
+    val proposedPlanJson: String? = null,
     val error: String? = null,
 ) {
     companion object {
@@ -80,6 +82,7 @@ data class SessionSnapshot(
                 completed = JsonFields.intField(progress, "completed") ?: 0,
                 total = JsonFields.intField(progress, "total") ?: 0,
                 currentProbe = probeObj?.let(ProbePrompt::parse),
+                proposedPlanJson = JsonFields.objectField(json, "proposed_plan"),
                 error = JsonFields.stringField(json, "error"),
             )
         }

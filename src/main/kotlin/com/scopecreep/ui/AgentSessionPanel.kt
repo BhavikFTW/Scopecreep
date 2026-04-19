@@ -54,7 +54,7 @@ class AgentSessionPanel(
     private val pickButton = JButton("Pick .SchDoc…")
     private val startButton = JButton("Start session").apply { isEnabled = false }
     private val cancelButton = JButton("Cancel").apply { isEnabled = false }
-    private val resumeButton = JButton("Resume (probe placed)").apply { isEnabled = false }
+    private val resumeButton = JButton("Resume").apply { isEnabled = false }
 
     private val statusLabel = JLabel("Idle.")
     private val sessionLabel = JLabel("session: —")
@@ -214,13 +214,22 @@ class AgentSessionPanel(
         progressBar.string = "${snap.completed} / ${snap.total}"
 
         val probe = snap.currentProbe
-        if (snap.status == "PROBE_REQUIRED" && probe != null) {
-            probePane.text = probePromptHtml(probe.label, probe.net, probe.locationHint, probe.probeType, probe.instructions)
-            resumeButton.isEnabled = true
-        } else {
-            resumeButton.isEnabled = false
-            if (snap.status in setOf("PLANNING", "CAPTURING", "EVALUATING")) {
-                probePane.text = "<html><body><i>Running: ${snap.status}…</i></body></html>"
+        when {
+            snap.status == "PROBE_REQUIRED" && probe != null -> {
+                probePane.text = probePromptHtml(probe.label, probe.net, probe.locationHint, probe.probeType, probe.instructions)
+                resumeButton.text = "Resume (probe placed)"
+                resumeButton.isEnabled = true
+            }
+            snap.status == "PLAN_READY" -> {
+                probePane.text = planReadyHtml(snap.proposedPlanJson)
+                resumeButton.text = "Approve plan & run"
+                resumeButton.isEnabled = true
+            }
+            else -> {
+                resumeButton.isEnabled = false
+                if (snap.status in setOf("PLANNING", "CAPTURING", "EVALUATING")) {
+                    probePane.text = "<html><body><i>Running: ${snap.status}…</i></body></html>"
+                }
             }
         }
 
@@ -291,6 +300,41 @@ class AgentSessionPanel(
           <p><i>Place the probe, then click "Resume (probe placed)".</i></p>
         </body></html>
         """.trimIndent()
+
+    /**
+     * Render the agent's proposed plan as an HTML table. The server sends
+     * proposed_plan as a JSON array of envelopes like
+     *   [{"summary": "...", "test_cases": [{probe_point_label, net, ...}]}]
+     * Parsed with the same JsonFields helpers (no real JSON parser).
+     */
+    private fun planReadyHtml(planJson: String?): String {
+        if (planJson.isNullOrBlank()) {
+            return "<html><body><i>Plan published but empty — resume to proceed.</i></body></html>"
+        }
+        val envelopes = splitTopLevelObjects(planJson)
+        val summary = envelopes.firstOrNull()?.let { JsonFields.stringField(it, "summary") }.orEmpty()
+        val casesJson = envelopes.firstOrNull()?.let { JsonFields.objectField(it, "test_cases") }.orEmpty()
+        val cases = splitTopLevelObjects(casesJson)
+        val rows = cases.joinToString("") { obj ->
+            val label = JsonFields.stringField(obj, "probe_point_label").orEmpty()
+            val net = JsonFields.stringField(obj, "net").orEmpty()
+            val type = JsonFields.stringField(obj, "probe_type").orEmpty()
+            val range = JsonFields.stringField(obj, "expected_range").orEmpty()
+            val desc = JsonFields.stringField(obj, "description").orEmpty()
+            "<tr><td>$label</td><td>$net</td><td>$type</td><td>$range</td><td>$desc</td></tr>"
+        }
+        return """
+            <html><body>
+              <h3>Proposed test plan (${cases.size} cases)</h3>
+              <p>${summary.ifBlank { "No summary." }}</p>
+              <table border='1' cellpadding='4' cellspacing='0'>
+                <tr><th>Probe</th><th>Net</th><th>Type</th><th>Expected</th><th>Description</th></tr>
+                $rows
+              </table>
+              <p><i>Hardware is not yet touched. Click "Approve plan & run" to start execution.</i></p>
+            </body></html>
+        """.trimIndent()
+    }
 
     private fun renderReport(json: String): String {
         val overall = JsonFields.stringField(json, "overall").orEmpty()
