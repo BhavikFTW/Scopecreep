@@ -20,6 +20,26 @@ class ScopecreepSettingsTest : BasePlatformTestCase() {
         }
     }
 
+    fun testAgentUrlBuiltFromAgentPort() {
+        val settings = ScopecreepSettings.getInstance()
+        val original = settings.state.copy()
+        try {
+            settings.loadState(
+                ScopecreepSettings.State(
+                    runnerHost = "192.168.1.5",
+                    runnerPort = 8420,
+                    agentPort = 8000,
+                    anthropicApiKey = "sk-ant-xyz",
+                )
+            )
+            assertEquals("http://192.168.1.5:8000", settings.agentUrl)
+            assertEquals("http://192.168.1.5:8420", settings.runnerUrl)
+            assertEquals("sk-ant-xyz", settings.state.anthropicApiKey)
+        } finally {
+            settings.loadState(original)
+        }
+    }
+
     fun testRoundTripNewFields() {
         val settings = ScopecreepSettings.getInstance()
         val original = settings.state.copy()

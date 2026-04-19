@@ -25,13 +25,18 @@ class SidecarManager : Disposable {
     private val started = AtomicBoolean(false)
 
     @Volatile
-    private var handler: OSProcessHandler? = null
+    private var profileHandler: OSProcessHandler? = null
+
+    @Volatile
+    private var agentHandler: OSProcessHandler? = null
 
     private val home: Path = Paths.get(System.getProperty("user.home"), ".scopecreep")
     private val sidecarDir: Path = home.resolve("sidecar")
+    private val benchyDir: Path = sidecarDir.resolve("benchy")
     private val venvDir: Path = home.resolve("venv")
     private val workerPy: Path = sidecarDir.resolve("worker.py")
     private val requirementsTxt: Path = sidecarDir.resolve("requirements.txt")
+    private val benchyManifest: Path = benchyDir.resolve("benchy-manifest.txt")
 
     fun startIfNeeded() {
         if (!started.compareAndSet(false, true)) return
@@ -40,7 +45,8 @@ class SidecarManager : Disposable {
                 extractResources()
                 ensureVenv()
                 installRequirements()
-                launchUvicorn()
+                launchProfileWorker()
+                launchAgentWorker()
             } catch (t: Throwable) {
                 log.warn("Scopecreep sidecar failed to start: ${t.message}", t)
                 started.set(false)
@@ -52,10 +58,38 @@ class SidecarManager : Disposable {
         Files.createDirectories(sidecarDir)
         copyResource("/sidecar/worker.py", workerPy)
         copyResource("/sidecar/requirements.txt", requirementsTxt)
-        // worker.py imports these — extract them alongside.
         for (name in listOf("config.py", "memory.py", "research.py")) {
             copyResource("/sidecar/$name", sidecarDir.resolve(name))
         }
+        extractBenchyBundle()
+    }
+
+    private fun extractBenchyBundle() {
+        val manifestStream = javaClass.getResourceAsStream("/sidecar/benchy/benchy-manifest.txt")
+        if (manifestStream == null) {
+            log.warn("Scopecreep: no bundled benchy backend (manifest missing) — agent features disabled.")
+            return
+        }
+        val entries = manifestStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toList()
+
+        if (entries.isEmpty()) {
+            log.warn("Scopecreep: benchy manifest is empty — agent features disabled.")
+            return
+        }
+
+        Files.createDirectories(benchyDir)
+        for (rel in entries) {
+            val target = benchyDir.resolve(rel)
+            Files.createDirectories(target.parent)
+            copyResource("/sidecar/benchy/$rel", target)
+        }
+        // Write manifest itself for debuggability.
+        copyResource("/sidecar/benchy/benchy-manifest.txt", benchyManifest)
+        log.info("Scopecreep: extracted ${entries.size} benchy backend files to $benchyDir")
     }
 
     private fun copyResource(resource: String, target: Path) {
@@ -86,7 +120,7 @@ class SidecarManager : Disposable {
         )
     }
 
-    private fun launchUvicorn() {
+    private fun launchProfileWorker() {
         val settings = ScopecreepSettings.getInstance().state
         val cmd = GeneralCommandLine(
             venvBin("uvicorn").toString(),
@@ -96,9 +130,6 @@ class SidecarManager : Disposable {
             "--port",
             settings.runnerPort.toString(),
         ).withWorkDirectory(sidecarDir.toFile())
-        // Forward memory-layer config to the uvicorn process. Fields default to
-        // "" so we only forward non-empty values; sidecar returns 503 on
-        // /memory/* if these are missing, which is correct before user pastes keys.
         if (settings.supabaseUrl.isNotBlank())
             cmd.withEnvironment("SCOPECREEP_SUPABASE_URL", settings.supabaseUrl)
         if (settings.supabaseAnonKey.isNotBlank())
@@ -106,22 +137,45 @@ class SidecarManager : Disposable {
         if (settings.nebiusApiKey.isNotBlank())
             cmd.withEnvironment("SCOPECREEP_NEBIUS_API_KEY", settings.nebiusApiKey)
 
+        profileHandler = spawn("profile", cmd)
+        log.info("Scopecreep profile sidecar started on ${settings.runnerHost}:${settings.runnerPort}")
+    }
+
+    private fun launchAgentWorker() {
+        if (!Files.exists(benchyManifest)) {
+            log.warn("Scopecreep: skipping agent worker — benchy backend not extracted.")
+            return
+        }
+        val settings = ScopecreepSettings.getInstance().state
+        val cmd = GeneralCommandLine(
+            venvBin("uvicorn").toString(),
+            "agent_worker:app",
+            "--host",
+            settings.runnerHost,
+            "--port",
+            settings.agentPort.toString(),
+        ).withWorkDirectory(benchyDir.toFile())
+        if (settings.anthropicApiKey.isNotBlank())
+            cmd.withEnvironment("ANTHROPIC_API_KEY", settings.anthropicApiKey)
+
+        agentHandler = spawn("agent", cmd)
+        log.info("Scopecreep agent sidecar started on ${settings.runnerHost}:${settings.agentPort}")
+    }
+
+    private fun spawn(tag: String, cmd: GeneralCommandLine): OSProcessHandler {
         val proc = cmd.createProcess()
-        val newHandler = OSProcessHandler(proc, cmd.commandLineString, Charsets.UTF_8)
-        newHandler.addProcessListener(object : ProcessAdapter() {
+        val h = OSProcessHandler(proc, cmd.commandLineString, Charsets.UTF_8)
+        h.addProcessListener(object : ProcessAdapter() {
             override fun onTextAvailable(event: ProcessEvent, outputType: Key<*>) {
-                log.info("[sidecar] ${event.text.trimEnd()}")
+                log.info("[$tag] ${event.text.trimEnd()}")
             }
 
             override fun processTerminated(event: ProcessEvent) {
-                log.info("Scopecreep sidecar exited with code ${event.exitCode}")
-                handler = null
-                started.set(false)
+                log.info("Scopecreep $tag sidecar exited with code ${event.exitCode}")
             }
         })
-        newHandler.startNotify()
-        handler = newHandler
-        log.info("Scopecreep sidecar started on ${settings.runnerHost}:${settings.runnerPort}")
+        h.startNotify()
+        return h
     }
 
     private fun run(cmd: GeneralCommandLine) {
@@ -154,14 +208,15 @@ class SidecarManager : Disposable {
     private fun venvPython(): Path = venvBin(if (SystemInfo.isWindows) "python" else "python3")
 
     override fun dispose() {
-        val h = handler ?: return
-        log.info("Shutting down Scopecreep sidecar")
-        val p = h.process
-        p.destroy()
-        if (!p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) {
-            p.destroyForcibly()
+        listOf("profile" to profileHandler, "agent" to agentHandler).forEach { (tag, h) ->
+            if (h == null) return@forEach
+            log.info("Shutting down Scopecreep $tag sidecar")
+            val p = h.process
+            p.destroy()
+            if (!p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)) p.destroyForcibly()
         }
-        handler = null
+        profileHandler = null
+        agentHandler = null
         started.set(false)
     }
 

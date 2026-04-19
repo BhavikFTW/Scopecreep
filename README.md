@@ -19,8 +19,16 @@ integrations ride on top of this plumbing in later milestones.
 | Managed Python sidecar (venv + uvicorn) | ready |
 | `/health` round-trip | ready |
 | Settings panel (runner host + port) | ready |
-| Real instrument drivers | next milestone |
-| AI agent integration | next milestone |
+| Profiles / memory layer (Supabase) | ready |
+| Agent backend bundled (port 8000) | ready |
+| Schematic tab — `/schematic/parse` render | ready |
+| Agent tab — session lifecycle + probe prompts | ready |
+| Waveform tab — measurement table | ready |
+| Chat tab — `codex exec` wrapper | ready |
+| Firmware tab — Supabase `firmware_jobs` dashboard | ready (pipeline still out-of-process) |
+
+For a full step-by-step install, first-boot walk-through, and validation
+matrix, see **[docs/INSTALL_AND_VALIDATE.md](docs/INSTALL_AND_VALIDATE.md)**.
 
 ## Requirements
 
@@ -39,8 +47,36 @@ This launches a sandbox IDE with the plugin pre-loaded. On first project open:
 1. Tool window **Scopecreep** appears on the right sidebar.
 2. Sidecar files are extracted to `~/.scopecreep/sidecar/`.
 3. A venv is created at `~/.scopecreep/venv/` and dependencies are installed.
-4. `uvicorn worker:app` starts on `127.0.0.1:8420` (configurable).
+4. `uvicorn worker:app` starts on `127.0.0.1:8420` (profile/memory) and
+   `uvicorn agent_worker:app` starts on `127.0.0.1:8000` (agent backend +
+   hardware). Both are configurable under **Settings → Tools → Scopecreep**.
 5. Click **Ping sidecar** — the label flips to `pong — {...health json...}`.
+
+## Agent session flow
+
+1. Open the **Schematic** tab → pick a `.SchDoc` → **Parse** to view the
+   Markdown summary. Use **Agent** tab's **Load .SchDoc → JSON** button to
+   populate the structured JSON the session endpoint expects.
+2. Switch to the **Agent** tab and click **Start session**. The plugin posts
+   to `POST /agent/sessions` on the agent backend (port 8000) and polls
+   `GET /agent/sessions/{id}` at ~1 Hz.
+3. When the status is **PROBE_REQUIRED**, the probe prompt card shows the
+   label, net, location hint, and instructions. Place the probe and click
+   **Resume (probe placed)**.
+4. When the session reaches **COMPLETE** or **FAILED**, the report is
+   rendered in the right-hand pane and the **Waveform** tab is populated with
+   per-probe measurements.
+
+## Firmware tab
+
+The firmware generation pipeline (LangGraph, in `~/benchy/pipeline/`) lives
+out of this repo. This plugin only wires the UI to the shared Supabase
+`firmware_jobs` table: the **Generate** button inserts a row; rows are
+polled every 2s and rendered into a stage timeline. When the pipeline is
+not running, rows stay in `queued` state indefinitely — expected.
+
+Requires a Supabase project with the `002_firmware_jobs.sql` migration
+applied (see `supabase/migrations/`).
 
 ## Build a distributable
 

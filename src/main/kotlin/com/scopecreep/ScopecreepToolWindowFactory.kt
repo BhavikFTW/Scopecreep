@@ -18,13 +18,40 @@ class ScopecreepToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val factory = ContentFactory.getInstance()
 
-        val pingTab = factory.createContent(ScopecreepPanel().root, "Ping", false)
-        toolWindow.contentManager.addContent(pingTab)
-
-        val profilesTab = factory.createContent(
-            com.scopecreep.ui.ProfilesPanel().root, "Profiles", false
+        toolWindow.contentManager.addContent(
+            factory.createContent(ScopecreepPanel().root, "Ping", false),
         )
-        toolWindow.contentManager.addContent(profilesTab)
+        toolWindow.contentManager.addContent(
+            factory.createContent(com.scopecreep.ui.ProfilesPanel().root, "Profiles", false),
+        )
+
+        // Agent integration tabs. The schematic tab feeds "Use in Agent" into
+        // the agent session panel; the waveform panel receives the final
+        // report JSON from the session panel.
+        val waveform = com.scopecreep.ui.WaveformPanel()
+        val agent = com.scopecreep.ui.AgentSessionPanel(
+            project = project,
+            onReport = { json -> waveform.loadReport(json) },
+        )
+        val schematic = com.scopecreep.ui.SchematicSummaryPanel(
+            project = project,
+            onUseInAgent = { markdown -> agent.useMarkdownAsHint(markdown) },
+        )
+        toolWindow.contentManager.addContent(
+            factory.createContent(schematic, "Schematic", false),
+        )
+        toolWindow.contentManager.addContent(
+            factory.createContent(agent, "Agent", false),
+        )
+        toolWindow.contentManager.addContent(
+            factory.createContent(waveform, "Waveform", false),
+        )
+        toolWindow.contentManager.addContent(
+            factory.createContent(com.scopecreep.ui.ChatPanel(), "Chat", false),
+        )
+        toolWindow.contentManager.addContent(
+            factory.createContent(com.scopecreep.ui.FirmwarePanel(), "Firmware", false),
+        )
     }
 
     override fun shouldBeAvailable(project: Project): Boolean = true

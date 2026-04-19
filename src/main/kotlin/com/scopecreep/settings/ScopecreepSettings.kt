@@ -17,8 +17,10 @@ class ScopecreepSettings : PersistentStateComponent<ScopecreepSettings.State> {
     data class State(
         var runnerHost: String = "127.0.0.1",
         var runnerPort: Int = 8420,
+        var agentPort: Int = 8000,
         var supabaseUrl: String = "https://dqdaaygmlqifjidiexcs.supabase.co",
         var supabaseAnonKey: String = "",
+        var anthropicApiKey: String = "",
         var nebiusApiKey: String = "",
         var codexProvider: String = "openai",
         var openAiApiKey: String = "",
@@ -35,6 +37,9 @@ class ScopecreepSettings : PersistentStateComponent<ScopecreepSettings.State> {
 
     val runnerUrl: String
         get() = "http://${state.runnerHost}:${state.runnerPort}"
+
+    val agentUrl: String
+        get() = "http://${state.runnerHost}:${state.agentPort}"
 
     companion object {
         fun getInstance(): ScopecreepSettings =
