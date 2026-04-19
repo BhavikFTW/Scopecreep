@@ -25,7 +25,16 @@ class ProfilesPanel(private val client: RunnerClient = RunnerClient()) {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
         cellRenderer = ProfileCellRenderer()
     }
-    private val preview = JEditorPane("text/html", "").apply { isEditable = false }
+    private val preview = JEditorPane("text/html", "").apply {
+        isEditable = false
+        // On JDK 21 some read-only JEditorPane instances lose mouse selection.
+        // Explicitly mark focusable + use a DefaultCaret with visible update
+        // policy so drag-selection works and Cmd/Ctrl-C copies the selection.
+        isFocusable = true
+        caret = javax.swing.text.DefaultCaret().apply {
+            updatePolicy = javax.swing.text.DefaultCaret.NEVER_UPDATE
+        }
+    }
     private val researchButton = JButton("Research new instrument…")
     private val refreshButton = JButton("Refresh")
     private val statusLabel = JLabel(" ")
