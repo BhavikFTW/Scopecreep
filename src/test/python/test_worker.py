@@ -23,6 +23,8 @@ def test_upload_returns_ok():
     assert body["status"] == "ok"
     assert "schematic" in body
     assert "pcb" in body
+    assert os.path.exists(body["schematic"])
+    assert os.path.exists(body["pcb"])
 
 
 def test_upload_missing_file_returns_422():

@@ -1,8 +1,8 @@
 """Scopecreep sidecar — minimal MVP skeleton.
 
-Exposes GET /health returning {"status": "ok"}. Hardware endpoints are
-stubbed out until the real instrument drivers are ported in from the
-backend repo.
+Exposes GET /health returning {"status": "ok"} and POST /upload for file
+uploads. Hardware endpoints are stubbed out until the real instrument drivers
+are ported in from the backend repo.
 """
 
 from __future__ import annotations
@@ -38,8 +38,8 @@ async def upload(
     pcb: UploadFile = File(...),
 ) -> dict:
     tmp_dir = tempfile.mkdtemp(prefix="scopecreep_")
-    schematic_path = os.path.join(tmp_dir, schematic.filename or "schematic")
-    pcb_path = os.path.join(tmp_dir, pcb.filename or "pcb")
+    schematic_path = os.path.join(tmp_dir, os.path.basename(schematic.filename or "schematic"))
+    pcb_path = os.path.join(tmp_dir, os.path.basename(pcb.filename or "pcb"))
     with open(schematic_path, "wb") as f:
         shutil.copyfileobj(schematic.file, f)
     with open(pcb_path, "wb") as f:
