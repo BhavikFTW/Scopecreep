@@ -52,6 +52,10 @@ class SidecarManager : Disposable {
         Files.createDirectories(sidecarDir)
         copyResource("/sidecar/worker.py", workerPy)
         copyResource("/sidecar/requirements.txt", requirementsTxt)
+        // worker.py imports these — extract them alongside.
+        for (name in listOf("config.py", "memory.py", "research.py")) {
+            copyResource("/sidecar/$name", sidecarDir.resolve(name))
+        }
     }
 
     private fun copyResource(resource: String, target: Path) {
