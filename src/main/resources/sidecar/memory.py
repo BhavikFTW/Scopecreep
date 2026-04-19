@@ -57,10 +57,16 @@ class ProfileStore:
         return [self._row_to_profile(r) for r in rows]
 
     def remember(self, profile: Profile) -> str:
-        res = self.sb.table("profiles").insert(profile.to_row()).execute()
+        # Upsert so re-researching the same instrument updates in place
+        # instead of tripping the unique (kind, slug, version) index.
+        res = (
+            self.sb.table("profiles")
+            .upsert(profile.to_row(), on_conflict="kind,slug,version")
+            .execute()
+        )
         rows = res.data or []
         if not rows:
-            raise RuntimeError("insert returned no rows (RLS rejected?)")
+            raise RuntimeError("upsert returned no rows (RLS rejected?)")
         return rows[0]["id"]
 
     def publish(self, profile_id: str) -> None:
