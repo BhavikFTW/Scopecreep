@@ -1,7 +1,7 @@
 package com.scopecreep.ui
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -304,24 +304,32 @@ class ChatPanel(private val project: Project? = null) : JPanel(BorderLayout()) {
             return "[save] refusing unsafe path: $relPath"
         }
         val target = File(base, relPath)
-        return try {
-            val result = StringBuilder()
-            WriteAction.runAndWait<Throwable> {
-                target.parentFile?.mkdirs()
-                val baseVf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(File(base))
-                    ?: throw IllegalStateException("cannot resolve project root in VFS")
-                val parent = VfsUtil.createDirectoryIfMissing(baseVf, relPath.substringBeforeLast('/', ""))
-                    ?: baseVf
-                val existing = parent.findChild(target.name)
-                val vf = existing ?: parent.createChildData(this, target.name)
-                vf.setBinaryContent(content.toByteArray(Charsets.UTF_8))
-                result.append("[saved] ").append(relPath)
-                FileEditorManager.getInstance(proj).openFile(vf, true)
+        val result = StringBuilder()
+        val err = arrayOf<Throwable?>(null)
+        // VFS mutations must run on the EDT inside a WriteCommandAction so PSI
+        // listeners fire on the right thread. Caller may be on EDT or pooled.
+        val body = Runnable {
+            try {
+                WriteCommandAction.runWriteCommandAction(proj) {
+                    target.parentFile?.mkdirs()
+                    val baseVf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(File(base))
+                        ?: throw IllegalStateException("cannot resolve project root in VFS")
+                    val parent = VfsUtil.createDirectoryIfMissing(baseVf, relPath.substringBeforeLast('/', ""))
+                        ?: baseVf
+                    val existing = parent.findChild(target.name)
+                    val vf = existing ?: parent.createChildData(this, target.name)
+                    vf.setBinaryContent(content.toByteArray(Charsets.UTF_8))
+                    result.append("[saved] ").append(relPath)
+                    FileEditorManager.getInstance(proj).openFile(vf, true)
+                }
+            } catch (t: Throwable) {
+                err[0] = t
             }
-            result.toString()
-        } catch (t: Throwable) {
-            "[save failed] ${t.message ?: t.javaClass.simpleName}"
         }
+        val app = ApplicationManager.getApplication()
+        if (app.isDispatchThread) body.run() else app.invokeAndWait(body)
+        return err[0]?.let { "[save failed] ${it.message ?: it.javaClass.simpleName}" }
+            ?: result.toString()
     }
 
     private fun scrollToBottom() {
