@@ -88,6 +88,76 @@ finally:
 
 Typical bring-up sequence: `connect → configure instruments → arm/enable → read/trigger → disable → disconnect`. Don't skip the `finally` — leaving a PSU rail live between runs is how you cook a DUT.
 
+## Oscilloscope bring-up validation
+
+Before trusting any measurement from the scope, prove the physical link with the in-repo validator at `python/scripts/validate_scope.py`. It is intentionally written against `pydwf` (the vendor WaveForms SDK binding) rather than the in-tree `pyftdi` driver, so a pass confirms the **device + USB + drivers** are sound independent of our own driver stack.
+
+### Wiring
+
+Jumper **W1 → 1+** and **GND → 1−** on the AD breadboard (AWG channel 1 out looped to scope channel 1 differential input). No DUT, no external PSU, no DIO.
+
+### Run
+
+```bash
+pip install pydwf numpy
+SCOPE_CH=0 python -m scripts.validate_scope   # SCOPE_CH=1 uses 2+/2−
+```
+
+### The four progressive checks
+
+Each prints `[PASS]` / `[FAIL]` / `[SKIP]` with the measured value, and the script exits on the first `FAIL` so the failing stage is obvious:
+
+| # | Check | What it proves | Typical output |
+|:-:|---|---|---|
+| 1 | SDK import | `pydwf` is installed and the WaveForms runtime (`dwf.framework`) is on disk and loadable | `libdwf <version>` |
+| 2 | Device enumerates | USB + Digilent drivers see at least one AD; FPGA is reachable | device name + serial |
+| 3 | AnalogIO readback | Control path works without touching the analog front-end — reads the AD's own USB rail via `analogIO.channelNodeStatus(2, 0)` | USB rail ≈ 5.0 V (PASS if 4.0 < usb_v < 5.5) |
+| 4 | AWG → scope loopback | AWG emits a 1 kHz, 2 Vpp sine on W1; scope captures it on `SCOPE_CH` at 1 MS/s for 8192 samples (buffered, software-triggered via `DwfTriggerSource.None_`) | `v_pp = 2.0 V ± 0.2`, `f = 1000 Hz ± 50` |
+
+### Interpreting failures
+
+- **SDK import FAIL** → install WaveForms runtime (pydwf is just a binding; it needs the Digilent-shipped `dwf` shared library).
+- **Device enumerates FAIL: "no Digilent devices found"** → USB cable, hub, or driver. Run WaveForms GUI as a cross-check; if that also can't see the device, it's not a software problem.
+- **AnalogIO SKIP** → non-fatal; AD2/AD3 differences mean channel 2 node 0 is the USB rail readout, but some units expose different nodes. Not a blocker for the loopback test.
+- **Scope capture FAIL: timed out** → the scope never reached `DwfState.Done` within 2 s of arming. Usually means the AWG isn't actually outputting (check W1 jumper), or USB bandwidth starved the capture (try a powered hub / different port).
+- **Loopback amplitude FAIL (v_pp way off 2.0 V)** → wiring (open jumper), ground-reference issue (1− not tied to AWG GND), or a probe in series. Measure W1 directly with a DMM before blaming the scope.
+- **Loopback frequency FAIL (zero-crossing count low or freq outside 950–1050 Hz)** → AWG is running but not at the programmed rate; check that nothing else (WaveForms GUI, another sidecar) is holding the device and reconfiguring it.
+
+### Thresholds worth reusing
+
+The tolerances in the script (`AMP_TOL = (1.8, 2.2)`, `FREQ_TOL = (950.0, 1050.0)`) are sane defaults for any self-loopback sanity check on this hardware at 1 kHz / 2 Vpp. Copy them verbatim into higher-level experiments unless you have a reason to tighten.
+
+### Key API shapes (for new scripts that go direct to pydwf)
+
+The validator is the canonical reference for these calls; mirror it when you need to bypass the in-tree driver:
+
+```python
+from pydwf import (
+    DwfLibrary, DwfAcquisitionMode, DwfAnalogOutNode,
+    DwfAnalogOutFunction, DwfState, DwfTriggerSource,
+)
+from pydwf.utilities import openDwfDevice
+
+with openDwfDevice(DwfLibrary()) as hdwf:
+    # AWG: note amplitude is PEAK, not peak-to-peak
+    awg = hdwf.analogOut
+    awg.nodeEnableSet(0, DwfAnalogOutNode.Carrier, True)
+    awg.nodeFunctionSet(0, DwfAnalogOutNode.Carrier, DwfAnalogOutFunction.Sine)
+    awg.nodeFrequencySet(0, DwfAnalogOutNode.Carrier, 1000.0)
+    awg.nodeAmplitudeSet(0, DwfAnalogOutNode.Carrier, 1.0)     # → 2 Vpp
+    awg.configure(0, True)
+
+    scope = hdwf.analogIn
+    scope.channelEnableSet(0, True)
+    scope.channelRangeSet(0, 5.0)
+    scope.frequencySet(1_000_000.0)
+    scope.bufferSizeSet(8192)
+    scope.acquisitionModeSet(DwfAcquisitionMode.Single)
+    scope.triggerSourceSet(DwfTriggerSource.None_)       # software-timed
+    scope.configure(False, True)                         # arm + start
+    # poll scope.status(True) until DwfState.Done, then scope.statusData(0, 8192)
+```
+
 ## Known gotchas
 
 - **USB bandwidth is the real sample-rate ceiling** on a crowded hub. A dedicated USB port (or a powered USB-2 hub) reliably delivers 100 MS/s captures; shared ports drop samples silently.

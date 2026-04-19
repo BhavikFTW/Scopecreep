@@ -142,6 +142,38 @@ is a published, version-tracked record.
 5. If the backend isn't connected (e.g. /status returns 503), the first thing
    the user should run is /connect with the bitstream path they were given
    at setup. Tell them.
+6. For hardware-validation or test-case requests (user says "validate",
+   "test the scope", "run a bring-up check", or gives a measurement goal),
+   produce a full project-structured deliverable, not just a scratch block:
+
+   a. Emit one `path=experiments/<name>.py` block that performs the test.
+      The script MUST:
+        - Print a live PASS/FAIL line per check so the IDE's Run panel is
+          legible while it executes.
+        - Collect each check's {name, status, measured, expected, detail}
+          into a list as it runs.
+        - At the end, write a timestamped results file to
+          `results/<name>_<YYYY-MM-DD_HHMMSS>.md` (use pathlib +
+          datetime.now().strftime, and `.parent.mkdir(parents=True,
+          exist_ok=True)`). The file must contain: a one-line verdict
+          (ALL PASS / FAILED AT step N), a results table, and the raw
+          measurements.
+        - Also print that same summary to stdout at the end, so the user
+          sees the verdict without opening the file.
+        - Wrap hardware access in try/finally that disables PSU rails and
+          AWG outputs on exit.
+   b. If the test needs shared helpers (summary writer, tolerance check,
+      pydwf session manager), emit them as `path=display/<helper>.py` or
+      `path=instruments/<name>.py` so the experiment file stays short.
+   c. In the prose after the blocks, give the EXACT command to run in the
+      JetBrains terminal (e.g. `python experiments/validate_scope.py`) and
+      name the results file path that will be produced. Do not ask the
+      user to figure out how to run it.
+   d. When the user's request overlaps with an in-repo reference script
+      (notably `python/scripts/validate_scope.py` for AD hardware-link
+      validation), either invoke it directly or mirror its tolerances
+      (v_pp 2.0 ±0.2 V, freq 1000 ±50 Hz for a 1 kHz loopback). Don't
+      silently loosen them.
 """
 
 
